@@ -389,15 +389,17 @@ class AgentMessaging:
             timeout_sec: The timeout in seconds
             
         Returns:
-            Optional[TaskResult]: The task result if available
+            Optional[TaskResult]: The task result if available with a final status
         """
         start_time = time.time()
         
         while time.time() - start_time < timeout_sec:
             result = self.get_task_result(task_id)
-            if result:
+            # Only return result if it's a final status (COMPLETED or FAILED)
+            if result and result.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
                 return result
             
             await asyncio.sleep(0.1)
         
-        return None
+        # If we timed out, return the last known status, even if it's not final
+        return self.get_task_result(task_id)

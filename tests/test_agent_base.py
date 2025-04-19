@@ -14,8 +14,8 @@ from src.agent_provocateur.agent_base import BaseAgent
 
 
 # Define a test agent that implements task handlers
-class TestAgent(BaseAgent):
-    """Test agent implementation."""
+class MockAgent(BaseAgent):
+    """Test agent implementation for testing."""
     
     async def handle_test_task(self, task_request: TaskRequest) -> Dict[str, Any]:
         """Handle a test task."""
@@ -36,7 +36,7 @@ def broker():
 @pytest.fixture
 async def agent1(broker):
     """Create agent 1 for testing."""
-    agent = TestAgent("agent1", broker)
+    agent = MockAgent("agent1", broker)
     await agent.start()
     yield agent
     await agent.stop()
@@ -45,7 +45,7 @@ async def agent1(broker):
 @pytest.fixture
 async def agent2(broker):
     """Create agent 2 for testing."""
-    agent = TestAgent("agent2", broker)
+    agent = MockAgent("agent2", broker)
     await agent.start()
     yield agent
     await agent.stop()
@@ -55,7 +55,7 @@ async def agent2(broker):
 @pytest.mark.asyncio
 async def test_agent_initialization(broker):
     """Test agent initialization."""
-    agent = TestAgent("test_agent", broker)
+    agent = MockAgent("test_agent", broker)
     
     assert agent.agent_id == "test_agent"
     assert agent.messaging is not None
@@ -67,7 +67,7 @@ async def test_agent_initialization(broker):
 @pytest.mark.asyncio
 async def test_agent_heartbeat(broker):
     """Test agent heartbeat."""
-    agent = TestAgent("test_agent", broker)
+    agent = MockAgent("test_agent", broker)
     
     # Mock the messaging module
     agent.messaging.send_heartbeat = MagicMock()
@@ -91,46 +91,46 @@ async def test_agent_heartbeat(broker):
 @pytest.mark.asyncio
 async def test_agent_task_handling(agent1, agent2):
     """Test agent task handling."""
-    task_id = await agent1.send_request_and_wait(
+    result = await agent1.send_request_and_wait(
         target_agent="agent2",
         intent="test_task",
         payload={"test_key": "test_value"},
         timeout_sec=1,
     )
     
-    assert task_id is not None
-    assert task_id.status == TaskStatus.COMPLETED
-    assert task_id.output == {"success": True, "data": {"test_key": "test_value"}}
+    assert result is not None
+    assert result.status == TaskStatus.COMPLETED
+    assert result.output == {"success": True, "data": {"test_key": "test_value"}}
 
 
 @pytest.mark.asyncio
 async def test_agent_error_handling(agent1, agent2):
     """Test agent error handling."""
-    task_id = await agent1.send_request_and_wait(
+    result = await agent1.send_request_and_wait(
         target_agent="agent2",
         intent="error_task",
         payload={"test_key": "test_value"},
         timeout_sec=1,
     )
     
-    assert task_id is not None
-    assert task_id.status == TaskStatus.FAILED
-    assert "Test error" in task_id.error
+    assert result is not None
+    assert result.status == TaskStatus.FAILED
+    assert "Test error" in result.error
 
 
 @pytest.mark.asyncio
 async def test_agent_unknown_intent(agent1, agent2):
     """Test handling of unknown intents."""
-    task_id = await agent1.send_request_and_wait(
+    result = await agent1.send_request_and_wait(
         target_agent="agent2",
         intent="unknown_intent",
         payload={"test_key": "test_value"},
         timeout_sec=1,
     )
     
-    assert task_id is not None
-    assert task_id.status == TaskStatus.FAILED
-    assert "No handler found for intent" in task_id.error
+    assert result is not None
+    assert result.status == TaskStatus.FAILED
+    assert "No handler found for intent" in result.error
 
 
 if __name__ == "__main__":
