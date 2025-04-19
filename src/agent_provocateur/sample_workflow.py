@@ -120,9 +120,10 @@ async def run_workflow(
         )
         
         # Wait for result with timeout
+        print(f"DEBUG: Waiting for result of task: {result}")
         task_result = await manager_agent.messaging.wait_for_task_result(
             task_id=result,
-            timeout_sec=20,  # Reduced timeout to avoid long waits
+            timeout_sec=60,  # Long enough to complete the task
         )
         
         end_time = time.time()

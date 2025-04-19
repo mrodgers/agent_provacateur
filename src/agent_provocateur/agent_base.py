@@ -91,6 +91,7 @@ class BaseAgent:
                 result = await handler(task_request)
                 
                 # Send success result
+                print(f"DEBUG: Sending COMPLETED result for task: {task_request.task_id}")
                 self.messaging.send_task_result(
                     task_id=task_request.task_id,
                     target_agent=task_request.source_agent,
@@ -102,6 +103,7 @@ class BaseAgent:
                 self.logger.error(
                     f"No handler found for intent: {task_request.intent}"
                 )
+                print(f"DEBUG: Sending FAILED result for task: {task_request.task_id} (no handler)")
                 self.messaging.send_task_result(
                     task_id=task_request.task_id,
                     target_agent=task_request.source_agent,
@@ -112,6 +114,7 @@ class BaseAgent:
         except Exception as e:
             # Send error result
             self.logger.exception(f"Error processing task: {e}")
+            print(f"DEBUG: Sending FAILED result for task: {task_request.task_id} (exception: {e})")
             self.messaging.send_task_result(
                 task_id=task_request.task_id,
                 target_agent=task_request.source_agent,

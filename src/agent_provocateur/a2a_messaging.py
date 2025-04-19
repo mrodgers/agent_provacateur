@@ -148,8 +148,12 @@ class AgentMessaging:
         Args:
             message: The message to handle
         """
+        # Print for debugging
+        print(f"DEBUG: Handling message: {message.message_type}, id={message.message_id}")
+        
         # Check if we've already processed this message (deduplication)
         if message.deduplication_key and self.broker.has_processed(message.deduplication_key):
+            print(f"DEBUG: Skipping already processed message: {message.deduplication_key}")
             return
         
         # Mark as processed to avoid duplicate processing
@@ -160,11 +164,17 @@ class AgentMessaging:
         if message.message_type == MessageType.TASK_REQUEST:
             task_request = message.payload
             if isinstance(task_request, TaskRequest):
+                print(f"DEBUG: Processing task request: {task_request.task_id}, intent={task_request.intent}")
                 self._handle_task_request(task_request)
+            else:
+                print(f"DEBUG: Invalid task request type: {type(task_request)}")
         elif message.message_type == MessageType.TASK_RESULT:
             task_result = message.payload
             if isinstance(task_result, TaskResult):
+                print(f"DEBUG: Storing task result: {task_result.task_id}, status={task_result.status}")
                 self.task_results[task_result.task_id] = task_result
+            else:
+                print(f"DEBUG: Invalid task result type: {type(task_result)}")
         
         # Notify registered callbacks
         if message.message_type.value in self.message_callbacks:
@@ -393,13 +403,38 @@ class AgentMessaging:
         """
         start_time = time.time()
         
+        # Make sure task_id is a string
+        if not isinstance(task_id, str):
+            print(f"WARNING: task_id is not a string: {task_id}")
+            return None
+            
+        # First, create a placeholder for IN_PROGRESS
+        in_progress_result = None
+            
+        # Wait loop
         while time.time() - start_time < timeout_sec:
+            # Check if we have a result
             result = self.get_task_result(task_id)
+            
+            # Save the IN_PROGRESS result if we have one
+            if result and result.status == TaskStatus.IN_PROGRESS:
+                in_progress_result = result
+                
             # Only return result if it's a final status (COMPLETED or FAILED)
             if result and result.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
                 return result
             
+            # Small sleep to avoid busy-waiting
             await asyncio.sleep(0.1)
         
         # If we timed out, return the last known status, even if it's not final
-        return self.get_task_result(task_id)
+        result = self.get_task_result(task_id)
+        if result:
+            return result
+            
+        # If we don't have any result but have an IN_PROGRESS one, return that
+        if in_progress_result:
+            return in_progress_result
+            
+        # Otherwise, no result at all
+        return None
