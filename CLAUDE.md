@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build/Lint/Test Commands
 - Install dependencies: `pip install -e ".[dev]"`
-- Run MCP server: `python -m agent_provocateur.main --host 127.0.0.1 --port 8000`
-- Run CLI client: `python -m agent_provocateur.cli [command] [options]`
+- Run MCP server: `python -m agent_provocateur.main --host 127.0.0.1 --port 8000` or `ap-server`
+- Run CLI client: `python -m agent_provocateur.cli [command] [options]` or `ap-client [command] [options]`
+- Run sample workflow: `ap-workflow "research query" --ticket AP-1 --doc doc1`
 - Run linting: `ruff check .`
 - Run type checking: `mypy src`
 - Run tests: `pytest`
@@ -15,8 +16,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This project implements a multi-agent research system with:
 1. MCP Server Mock for simulated tool interactions
 2. MCP Client SDK for standardized tool access
-3. A2A Messaging Layer (planned) for agent coordination
-4. LangGraph Orchestration (planned) for workflow execution
+3. A2A Messaging Layer for agent coordination
+4. Sample agent implementations for collaborative workflows
 
 ## Code Style Guidelines
 - **Formatting**: 88 character line length (enforced by ruff)
@@ -42,8 +43,8 @@ This project implements a multi-agent research system with:
   - MCP Client SDK
   - CLI Demo
 
-- Phase 2 (A2A Communication Development) - Planned
-  - Message Schema
-  - Pub/Sub Infrastructure
-  - Agent Messaging Module
-  - Sample Workflow
+- Phase 2 (A2A Communication Development) - Complete
+  - Message Schema: JSON definitions for TaskRequest, TaskResult, Heartbeat
+  - Pub/Sub Infrastructure: In-memory broker and Redis implementation
+  - Agent Messaging Module: Base agent framework with task handling and retries
+  - Sample Workflow: Demo with JIRA, Doc, Search, and Synthesis agents

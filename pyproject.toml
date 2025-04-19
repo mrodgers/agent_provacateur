@@ -21,6 +21,9 @@ dev = [
     "mypy>=1.0.0",
     "ruff>=0.0.0",
 ]
+redis = [
+    "redis>=4.5.0",
+]
 
 [tool.setuptools]
 packages = ["agent_provocateur"]
@@ -39,3 +42,4 @@ disallow_untyped_defs = true
 [project.scripts]
 ap-server = "agent_provocateur.main:main"
 ap-client = "agent_provocateur.cli:main"
+ap-workflow = "agent_provocateur.sample_workflow:main"
