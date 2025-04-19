@@ -4,6 +4,8 @@
 
 As an AI assistant helping with code, you should:
 
+- familiarize yourself with the code base by running tree
+- we are always using ruff and uv for venv management and linting
 - After making changes, always remind the developer to restart services for testing
 - Look for existing code to iterate on instead of creating new code
 - Do not drastically change established patterns before trying to improve existing ones
