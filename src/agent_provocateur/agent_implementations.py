@@ -165,46 +165,74 @@ class ManagerAgent(BaseAgent):
         
         results = {}
         
-        # Step 1: Fetch JIRA ticket if provided
-        if ticket_id:
-            ticket_result = await self.send_request_and_wait(
-                target_agent="jira_agent",
-                intent="fetch_ticket",
-                payload={"ticket_id": ticket_id},
+        try:
+            # Step 1: Fetch JIRA ticket if provided
+            if ticket_id:
+                self.logger.info(f"Fetching JIRA ticket: {ticket_id}")
+                ticket_result = await self.send_request_and_wait(
+                    target_agent="jira_agent",
+                    intent="fetch_ticket",
+                    payload={"ticket_id": ticket_id},
+                    timeout_sec=5,  # Shorter timeout to avoid hanging
+                )
+                
+                if ticket_result and ticket_result.status == TaskStatus.COMPLETED:
+                    self.logger.info(f"Successfully fetched ticket: {ticket_id}")
+                    results["ticket_data"] = ticket_result.output
+                else:
+                    self.logger.warning(f"Failed to fetch ticket: {ticket_id}")
+            
+            # Step 2: Fetch document if provided
+            if doc_id:
+                self.logger.info(f"Fetching document: {doc_id}")
+                doc_result = await self.send_request_and_wait(
+                    target_agent="doc_agent",
+                    intent="get_doc",
+                    payload={"doc_id": doc_id},
+                    timeout_sec=5,  # Shorter timeout to avoid hanging
+                )
+                
+                if doc_result and doc_result.status == TaskStatus.COMPLETED:
+                    self.logger.info(f"Successfully fetched document: {doc_id}")
+                    results["document_data"] = doc_result.output
+                else:
+                    self.logger.warning(f"Failed to fetch document: {doc_id}")
+            
+            # Step 3: Perform web search
+            self.logger.info(f"Performing web search for: {query}")
+            search_result = await self.send_request_and_wait(
+                target_agent="search_agent",
+                intent="search_web",
+                payload={"query": query},
+                timeout_sec=5,  # Shorter timeout to avoid hanging
             )
             
-            if ticket_result and ticket_result.status == TaskStatus.COMPLETED:
-                results["ticket_data"] = ticket_result.output
-        
-        # Step 2: Fetch document if provided
-        if doc_id:
-            doc_result = await self.send_request_and_wait(
-                target_agent="doc_agent",
-                intent="get_doc",
-                payload={"doc_id": doc_id},
+            if search_result and search_result.status == TaskStatus.COMPLETED:
+                self.logger.info("Successfully performed web search")
+                results["search_results"] = search_result.output.get("results", [])
+            else:
+                self.logger.warning("Failed to perform web search")
+            
+            # Step 4: Synthesize results
+            self.logger.info("Synthesizing results")
+            synthesis_result = await self.send_request_and_wait(
+                target_agent="synthesis_agent",
+                intent="synthesize",
+                payload=results,
+                timeout_sec=5,  # Shorter timeout to avoid hanging
             )
             
-            if doc_result and doc_result.status == TaskStatus.COMPLETED:
-                results["document_data"] = doc_result.output
-        
-        # Step 3: Perform web search
-        search_result = await self.send_request_and_wait(
-            target_agent="search_agent",
-            intent="search_web",
-            payload={"query": query},
-        )
-        
-        if search_result and search_result.status == TaskStatus.COMPLETED:
-            results["search_results"] = search_result.output.get("results", [])
-        
-        # Step 4: Synthesize results
-        synthesis_result = await self.send_request_and_wait(
-            target_agent="synthesis_agent",
-            intent="synthesize",
-            payload=results,
-        )
-        
-        if synthesis_result and synthesis_result.status == TaskStatus.COMPLETED:
-            return synthesis_result.output
-        else:
-            return {"error": "Failed to synthesize results"}
+            if synthesis_result and synthesis_result.status == TaskStatus.COMPLETED:
+                self.logger.info("Successfully synthesized results")
+                return synthesis_result.output
+            else:
+                self.logger.warning("Failed to synthesize results")
+                return {"error": "Failed to synthesize results"}
+                
+        except Exception as e:
+            self.logger.error(f"Error in research query: {e}")
+            return {
+                "error": f"An error occurred during research: {str(e)}",
+                "sections": [{"title": "Error", "content": f"Research failed: {str(e)}"}],
+                "summary": "Research failed due to an error"
+            }

@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from typing import Dict, Optional
 
 from agent_provocateur.a2a_messaging import InMemoryMessageBroker
+from agent_provocateur.a2a_models import TaskStatus
 from agent_provocateur.agent_implementations import (
     DocAgent,
     JiraAgent,
@@ -16,6 +17,27 @@ from agent_provocateur.agent_implementations import (
     SynthesisAgent,
 )
 
+
+async def check_server_health(url: str) -> bool:
+    """Check if the MCP server is healthy.
+    
+    Args:
+        url: The server URL
+        
+    Returns:
+        bool: True if the server is healthy
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{url}/config", timeout=2.0)
+            if response.status_code != 200:
+                return False
+            
+            # Try a simple JIRA ticket request to ensure full functionality
+            response = await client.get(f"{url}/jira/ticket/AP-1", timeout=2.0)
+            return response.status_code == 200
+    except Exception:
+        return False
 
 async def run_workflow(
     query: str,
@@ -40,6 +62,19 @@ async def run_workflow(
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=[logging.StreamHandler()],
     )
+    
+    # Check if MCP server is running and healthy
+    if not await check_server_health(mcp_url):
+        return {
+            "error": f"MCP server at {mcp_url} is not running or not responding",
+            "sections": [
+                {
+                    "title": "Server Error",
+                    "content": f"Please start the MCP server with: ./scripts/ap.sh server"
+                }
+            ],
+            "summary": "Cannot connect to MCP server"
+        }
     
     # Create shared message broker
     broker = InMemoryMessageBroker()
@@ -77,27 +112,45 @@ async def run_workflow(
         start_time = time.time()
         print(f"Starting workflow with query: {query}")
         
+        # Send the request
         result = manager_agent.messaging.send_task_request(
             target_agent="manager_agent",
             intent="research_query",
             payload=payload,
         )
         
-        # Wait for result
+        # Wait for result with timeout
         task_result = await manager_agent.messaging.wait_for_task_result(
             task_id=result,
-            timeout_sec=30,
+            timeout_sec=20,  # Reduced timeout to avoid long waits
         )
         
         end_time = time.time()
         duration = end_time - start_time
         
-        if task_result:
+        if task_result and task_result.status == TaskStatus.COMPLETED:
             print(f"Workflow completed in {duration:.2f} seconds")
             return task_result.output
         else:
-            print(f"Workflow timed out after {duration:.2f} seconds")
-            return {"error": "Workflow timed out"}
+            print(f"Workflow timed out or failed after {duration:.2f} seconds")
+            return {
+                "error": "Workflow timed out or failed",
+                "sections": [
+                    {
+                        "title": "Workflow Error",
+                        "content": "The workflow didn't complete in the expected time."
+                    }
+                ],
+                "summary": "Workflow execution failed"
+            }
+    
+    except Exception as e:
+        print(f"Error running workflow: {e}")
+        return {
+            "error": f"Error running workflow: {str(e)}",
+            "sections": [{"title": "Error", "content": f"An error occurred: {str(e)}"}],
+            "summary": "Workflow execution error"
+        }
     
     finally:
         # Stop all agents
@@ -130,22 +183,6 @@ def format_report(report: Dict) -> str:
     return "\n".join(result)
 
 
-async def check_server(url: str) -> bool:
-    """Check if the MCP server is running.
-    
-    Args:
-        url: The server URL to check
-        
-    Returns:
-        bool: True if server is running, False otherwise
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{url}/config", timeout=2.0)
-            return response.status_code == 200
-    except (httpx.ConnectError, httpx.ConnectTimeout):
-        return False
-
 async def main_async() -> int:
     """Async entry point for the sample workflow.
     
@@ -162,12 +199,7 @@ async def main_async() -> int:
     
     args = parser.parse_args()
     
-    # Check if server is running
-    if not await check_server(args.server):
-        print(f"ERROR: MCP server not running at {args.server}")
-        print("Please start the server with: ./scripts/ap.sh server")
-        return 1
-    
+    # We don't need to check server here as run_workflow now does it
     report = await run_workflow(
         query=args.query,
         ticket_id=args.ticket,
