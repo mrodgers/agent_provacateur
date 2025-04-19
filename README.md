@@ -5,30 +5,53 @@ Agents for research - A Python library for developing, benchmarking, and deployi
 ## Installation
 
 ```bash
+# Install in development mode with all dev dependencies
 pip install -e ".[dev]"
+```
+
+## Project Structure
+
+```
+.
+├── src/
+│   └── agent_provocateur/    # Main package
+│       ├── __init__.py
+│       └── main.py           # Entry point
+├── tests/                    # Test directory
+│   ├── __init__.py
+│   └── test_main.py          # Tests for main module
+├── .github/workflows/        # CI/CD configuration
+│   └── ci.yml                # GitHub Actions workflow
+├── CLAUDE.md                 # Guide for Claude AI
+├── LICENSE                   # MIT License
+├── README.md                 # This file
+├── pyproject.toml            # Project configuration
+└── setup.py                  # Installation script
 ```
 
 ## Development
 
 ```bash
 # Run tests
-pytest
+python tests/test_main.py  # Run directly (single test)
+pytest                     # Run all tests with pytest
 
 # Type checking
 mypy src
 
 # Linting
-ruff .
+ruff check .
 ```
 
 ## Usage
 
 ```python
-from agent_provocateur import main
+from agent_provocateur.main import main
 
-main()
+# Returns True if execution was successful
+result = main()
 ```
 
 ## License
 
-See the LICENSE file for details.
+MIT License. See the LICENSE file for details.
