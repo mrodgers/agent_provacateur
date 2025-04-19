@@ -3,14 +3,21 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build/Lint/Test Commands
-- Install dependencies: `pip install -e ".[dev]"`
-- Run MCP server: `python -m agent_provocateur.main --host 127.0.0.1 --port 8000` or `ap-server`
-- Run CLI client: `python -m agent_provocateur.cli [command] [options]` or `ap-client [command] [options]`
+
+### Using uv scripts (recommended)
+- Setup environment: `./scripts/setup_env.sh`
+- Run tests: `./scripts/run_tests.sh`
+- Start MCP server: `./scripts/start_servers.sh`
+
+### Manual commands
+- Install dependencies: `uv pip install -e ".[dev]"` or `pip install -e ".[dev]"`
+- Run MCP server: `ap-server --host 127.0.0.1 --port 8000`
+- Run CLI client: `ap-client [command] [options]`
 - Run sample workflow: `ap-workflow "research query" --ticket AP-1 --doc doc1`
 - Run linting: `ruff check .`
 - Run type checking: `mypy src`
 - Run tests: `pytest`
-- Run tests with coverage: `python -m pytest --cov=src.agent_provocateur`
+- Run tests with coverage: `pytest --cov=src.agent_provocateur`
 
 ## Project Overview
 This project implements a multi-agent research system with:

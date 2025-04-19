@@ -13,9 +13,14 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 ## Installation
 
 ```bash
-# Install in development mode with all dev dependencies
+# Using uv (recommended)
+./scripts/setup_env.sh
+
+# Or using pip
 pip install -e ".[dev]"
 ```
+
+For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Project Structure
 
