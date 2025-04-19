@@ -49,41 +49,7 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-# .python-version
-
-# Environments
+# Virtual environments
 .env
 .venv
 env/
@@ -106,5 +72,8 @@ dmypy.json
 # Ruff stuff:
 .ruff_cache/
 
-# PyPI configuration file
-.pypirc
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
