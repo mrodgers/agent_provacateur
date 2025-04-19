@@ -4,11 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build/Lint/Test Commands
 - Install dependencies: `pip install -e ".[dev]"`
-- Run application: `python -m agent_provocateur.main`
+- Run MCP server: `python -m agent_provocateur.main --host 127.0.0.1 --port 8000`
+- Run CLI client: `python -m agent_provocateur.cli [command] [options]`
 - Run linting: `ruff check .`
 - Run type checking: `mypy src`
 - Run tests: `pytest`
-- Run single test: `python tests/test_main.py`
+- Run tests with coverage: `python -m pytest --cov=src.agent_provocateur`
+
+## Project Overview
+This project implements a multi-agent research system with:
+1. MCP Server Mock for simulated tool interactions
+2. MCP Client SDK for standardized tool access
+3. A2A Messaging Layer (planned) for agent coordination
+4. LangGraph Orchestration (planned) for workflow execution
 
 ## Code Style Guidelines
 - **Formatting**: 88 character line length (enforced by ruff)
@@ -27,3 +35,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Follow Python package best practices
 - Use type annotations for all functions
 - Update documentation when making significant changes
+
+## Current Project Status
+- Phase 1 (MCP Tools Development) - Complete
+  - MCP Server Mock
+  - MCP Client SDK
+  - CLI Demo
+
+- Phase 2 (A2A Communication Development) - Planned
+  - Message Schema
+  - Pub/Sub Infrastructure
+  - Agent Messaging Module
+  - Sample Workflow
