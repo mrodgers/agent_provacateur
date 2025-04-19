@@ -67,7 +67,7 @@ pytest
 pytest tests/test_main.py
 
 # Run with coverage
-pytest --cov=src.agent_provocateur
+pytest --cov=agent_provocateur
 ```
 
 ## Running the Server

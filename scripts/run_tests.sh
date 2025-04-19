@@ -43,7 +43,7 @@ else
     read -p "Generate coverage report? (y/n) " gen_coverage
     if [[ $gen_coverage == "y" || $gen_coverage == "Y" ]]; then
         echo "Generating coverage report..."
-        python -m pytest --cov=src.agent_provocateur
+        python -m pytest --cov=agent_provocateur
     fi
 fi
 

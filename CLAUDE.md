@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run linting: `ruff check .`
 - Run type checking: `mypy src`
 - Run tests: `pytest`
-- Run tests with coverage: `pytest --cov=src.agent_provocateur`
+- Run tests with coverage: `pytest --cov=agent_provocateur`
 
 ## Project Overview
 This project implements a multi-agent research system with:
