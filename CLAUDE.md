@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build/Lint/Test Commands
 
-### Using uv scripts (recommended)
-- Setup environment: `./scripts/setup_env.sh`
-- Run tests: `./scripts/run_tests.sh`
-- Start MCP server: `./scripts/start_servers.sh`
+### Using the unified script (recommended)
+- Setup environment: `./scripts/ap.sh setup`
+- Run tests: `./scripts/ap.sh test`
+- Start MCP server: `./scripts/ap.sh server`
+- Run workflow: `./scripts/ap.sh workflow "query" --ticket=AP-1`
+- Get help: `./scripts/ap.sh help`
 
 ### Manual commands
 - Install dependencies: `uv pip install -e ".[dev]"` or `pip install -e ".[dev]"`

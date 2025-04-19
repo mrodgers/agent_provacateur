@@ -13,8 +13,8 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 ## Installation
 
 ```bash
-# Using uv (recommended)
-./scripts/setup_env.sh
+# Using the unified script (recommended)
+./scripts/ap.sh setup
 
 # Or using pip
 pip install -e ".[dev]"
