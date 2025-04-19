@@ -1,7 +1,6 @@
 import asyncio
 import os
 import sys
-import time
 from typing import Any, Dict
 from unittest.mock import MagicMock
 
@@ -10,7 +9,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.agent_provocateur.a2a_messaging import InMemoryMessageBroker
-from src.agent_provocateur.a2a_models import MessageType, TaskRequest, TaskResult, TaskStatus
+from src.agent_provocateur.a2a_models import TaskRequest
 from src.agent_provocateur.agent_base import BaseAgent
 
 
