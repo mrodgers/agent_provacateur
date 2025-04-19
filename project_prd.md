@@ -66,7 +66,7 @@ The Multi-Agent Research System enables modular agents to collaboratively perfor
 | Happy Path                        | Full MCP + A2A workflow without errors           | Final report accuracy ≥ 95%                 |
 | Tool Error Injection              | Mock server returns 500 errors intermittently    | Agents retry and succeed; no crash          |
 | High Latency                      | Simulate 1500 ms delays                          | Workflow completes in < 15 s                |
-| Message Duplication               | Broker delivers duplicates                       | Agents dedupe; no duplicate side effects     |
+| Message Duplication               | Broker delivers duplicates                       | Agents dedupe with status-aware keys; no duplicate side effects     |
 
 ---
 

@@ -285,10 +285,11 @@ class AgentMessaging:
             error=error,
         )
         
+        # Use a different deduplication key for each status to avoid skipping important updates
         message = self.create_message(
             message_type=MessageType.TASK_RESULT,
             payload=task_result,
-            deduplication_key=f"result:{task_id}",
+            deduplication_key=f"result:{task_id}:{status.value}",
         )
         
         self.broker.publish(f"agent.{target_agent}", message)

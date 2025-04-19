@@ -7,7 +7,7 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **MCP Server Mock**: Simulates tool interactions (JIRA, Document, PDF, Search) with configurable latency and error injection
 - **MCP Client SDK**: Type-safe Python client for interacting with the MCP server
 - **CLI Interface**: Command-line tools for interacting with the server
-- **Agent-to-Agent (A2A) Communication**: Structured messaging system for agent coordination and task delegation
+- **Agent-to-Agent (A2A) Communication**: Structured messaging system for agent coordination and task delegation with reliable deduplication
 - **Agent Framework**: Base classes and utilities for building collaborative agent systems
 
 ## Installation
