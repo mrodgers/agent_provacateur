@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 import time
+import httpx
 from argparse import ArgumentParser
 from typing import Dict, Optional
 
@@ -129,6 +130,22 @@ def format_report(report: Dict) -> str:
     return "\n".join(result)
 
 
+async def check_server(url: str) -> bool:
+    """Check if the MCP server is running.
+    
+    Args:
+        url: The server URL to check
+        
+    Returns:
+        bool: True if server is running, False otherwise
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{url}/config", timeout=2.0)
+            return response.status_code == 200
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        return False
+
 async def main_async() -> int:
     """Async entry point for the sample workflow.
     
@@ -144,6 +161,12 @@ async def main_async() -> int:
     )
     
     args = parser.parse_args()
+    
+    # Check if server is running
+    if not await check_server(args.server):
+        print(f"ERROR: MCP server not running at {args.server}")
+        print("Please start the server with: ./scripts/ap.sh server")
+        return 1
     
     report = await run_workflow(
         query=args.query,

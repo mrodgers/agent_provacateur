@@ -20,8 +20,8 @@ class JiraAgent(BaseAgent):
         if not ticket_id:
             raise ValueError("Missing required parameter: ticket_id")
         
-        # Use MCP client to fetch ticket
-        ticket = self.mcp_client.fetch_ticket(ticket_id)
+        # Use async MCP client to fetch ticket
+        ticket = await self.async_mcp_client.fetch_ticket(ticket_id)
         
         return ticket.dict()
 
@@ -42,8 +42,8 @@ class DocAgent(BaseAgent):
         if not doc_id:
             raise ValueError("Missing required parameter: doc_id")
         
-        # Use MCP client to fetch document
-        doc = self.mcp_client.get_doc(doc_id)
+        # Use async MCP client to fetch document
+        doc = await self.async_mcp_client.get_doc(doc_id)
         
         return doc.dict()
 
@@ -64,8 +64,8 @@ class PdfAgent(BaseAgent):
         if not pdf_id:
             raise ValueError("Missing required parameter: pdf_id")
         
-        # Use MCP client to fetch PDF
-        pdf = self.mcp_client.get_pdf(pdf_id)
+        # Use async MCP client to fetch PDF
+        pdf = await self.async_mcp_client.get_pdf(pdf_id)
         
         return pdf.dict()
 
@@ -86,8 +86,8 @@ class SearchAgent(BaseAgent):
         if not query:
             raise ValueError("Missing required parameter: query")
         
-        # Use MCP client to search
-        results = self.mcp_client.search_web(query)
+        # Use async MCP client to search
+        results = await self.async_mcp_client.search_web(query)
         
         return {
             "results": [result.dict() for result in results]
