@@ -6,8 +6,10 @@ import httpx
 from agent_provocateur.models import (
     DocumentContent,
     JiraTicket,
+    LlmMessage,
     LlmRequest,
     LlmResponse,
+    LlmResponseUsage,
     PdfDocument,
     SearchResult,
     SearchResults,
@@ -97,35 +99,64 @@ class McpClient:
         
     async def generate_text(
         self,
-        prompt: str,
+        prompt: Optional[str] = None,
+        messages: Optional[List[Dict[str, str]]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         system_prompt: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
+        provider: str = "mock",
+        model: Optional[str] = None,
+        stream: bool = False,
     ) -> LlmResponse:
         """Generate text using the LLM.
         
         Args:
             prompt: The prompt to send to the LLM
+            messages: List of messages for chat-based LLMs
             temperature: Temperature for generation (0.0-1.0)
             max_tokens: Maximum number of tokens to generate
             system_prompt: Optional system prompt
             context: Optional context data
+            provider: LLM provider to use
+            model: Model name to use
+            stream: Whether to stream the response
             
         Returns:
             LlmResponse: The generated text response
             
         Raises:
             httpx.HTTPStatusError: If the request fails
+            
+        Note:
+            Either prompt or messages must be provided.
         """
+        # Prepare the request
+        llm_messages = None
+        if messages:
+            llm_messages = [
+                LlmMessage(role=msg["role"], content=msg["content"])
+                for msg in messages
+            ]
+            
+        # If system_prompt is provided separately and no messages include system role
+        if system_prompt and llm_messages and not any(m.role == "system" for m in llm_messages):
+            llm_messages.insert(0, LlmMessage(role="system", content=system_prompt))
+            system_prompt = None  # Avoid duplication
+            
         request = LlmRequest(
             prompt=prompt,
+            messages=llm_messages,
             temperature=temperature,
             max_tokens=max_tokens,
             system_prompt=system_prompt,
             context=context,
+            provider=provider,
+            model=model,
+            stream=stream,
         )
-        response = await self.client.post("/llm/generate", json=request.dict())
+        
+        response = await self.client.post("/llm/generate", json=request.dict(exclude_none=True))
         response.raise_for_status()
         return LlmResponse(**response.json())
     
@@ -206,16 +237,28 @@ class SyncMcpClient:
         
     def generate_text(
         self,
-        prompt: str,
+        prompt: Optional[str] = None,
+        messages: Optional[List[Dict[str, str]]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         system_prompt: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
+        provider: str = "mock",
+        model: Optional[str] = None,
+        stream: bool = False,
     ) -> LlmResponse:
         """Generate text using the LLM synchronously."""
         return asyncio.run(
             self.async_client.generate_text(
-                prompt, temperature, max_tokens, system_prompt, context
+                prompt=prompt,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                system_prompt=system_prompt,
+                context=context,
+                provider=provider,
+                model=model,
+                stream=stream,
             )
         )
     

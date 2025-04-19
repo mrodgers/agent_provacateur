@@ -180,21 +180,112 @@ class DecisionAgent(BaseAgent):
         else:
             prompt = self._build_generic_decision_prompt(task_request.payload)
         
-        # Use LLM to make the decision
-        llm_response = await self.async_mcp_client.generate_text(
-            prompt=prompt,
-            temperature=0.3,  # Lower temperature for more deterministic outputs
-            context=context_data
-        )
+        # Check if there's a provider preference in context_data
+        provider = context_data.get("llm_provider", "mock")
+        model = context_data.get("llm_model", None)
         
-        # Process and return the decision
-        return {
-            "decision": llm_response.text,
-            "confidence": 0.85,  # Mock confidence score
-            "model": llm_response.model,
-            "reasoning": "Decision based on provided criteria and context",
-            "token_usage": llm_response.usage
-        }
+        # Use LLM to make the decision
+        try:
+            # First try with Ollama provider if requested
+            if provider == "ollama":
+                # Create a messages format for better context handling with chat models
+                messages = []
+                
+                # Add system prompt if available
+                if context_data.get("system_prompt"):
+                    messages.append({
+                        "role": "system", 
+                        "content": context_data.get("system_prompt")
+                    })
+                
+                # Add the decision context
+                if context_data:
+                    context_message = "Context information:\n"
+                    for key, value in context_data.items():
+                        if key not in ["llm_provider", "llm_model", "system_prompt"]:
+                            context_message += f"{key}: {value}\n"
+                    
+                    if context_message != "Context information:\n":
+                        messages.append({
+                            "role": "user",
+                            "content": context_message
+                        })
+                
+                # Add the main prompt
+                messages.append({
+                    "role": "user",
+                    "content": prompt
+                })
+                
+                llm_response = await self.async_mcp_client.generate_text(
+                    messages=messages,
+                    temperature=0.3,  # Lower temperature for more deterministic outputs
+                    provider=provider,
+                    model=model,
+                )
+            else:
+                # Use regular prompt-based approach for other providers
+                llm_response = await self.async_mcp_client.generate_text(
+                    prompt=prompt,
+                    temperature=0.3,  # Lower temperature for more deterministic outputs
+                    context=context_data,
+                    provider=provider,
+                    model=model,
+                )
+                
+            # Process and return the decision
+            return {
+                "decision": llm_response.text,
+                "confidence": 0.85,  # Confidence score
+                "model": llm_response.model,
+                "provider": llm_response.provider,
+                "reasoning": "Decision based on provided criteria and context",
+                "token_usage": {
+                    "prompt_tokens": llm_response.usage.prompt_tokens,
+                    "completion_tokens": llm_response.usage.completion_tokens,
+                    "total_tokens": llm_response.usage.total_tokens,
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error using {provider} LLM: {e}")
+            
+            # Fallback to mock provider if original provider fails
+            if provider != "mock":
+                self.logger.info(f"Falling back to mock LLM provider")
+                llm_response = await self.async_mcp_client.generate_text(
+                    prompt=prompt,
+                    temperature=0.3,
+                    context=context_data,
+                    provider="mock",
+                )
+                
+                return {
+                    "decision": llm_response.text,
+                    "confidence": 0.75,  # Lower confidence for fallback
+                    "model": llm_response.model,
+                    "provider": "mock (fallback)",
+                    "reasoning": "Decision based on provided criteria and context (using fallback provider)",
+                    "token_usage": {
+                        "prompt_tokens": llm_response.usage.prompt_tokens,
+                        "completion_tokens": llm_response.usage.completion_tokens,
+                        "total_tokens": llm_response.usage.total_tokens,
+                    }
+                }
+            
+            # If mock also fails or was the original provider
+            return {
+                "decision": f"Error generating decision: {str(e)}",
+                "confidence": 0.0,
+                "model": "error",
+                "provider": "error",
+                "reasoning": "Failed to generate decision due to an error",
+                "token_usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                }
+            }
     
     def _build_prioritization_prompt(self, options: List[Dict[str, Any]], criteria: List[str]) -> str:
         """Build a prompt for prioritization decisions."""
