@@ -9,6 +9,7 @@ from typing import Dict, Optional
 from agent_provocateur.a2a_messaging import InMemoryMessageBroker
 from agent_provocateur.a2a_models import TaskStatus
 from agent_provocateur.agent_implementations import (
+    DecisionAgent,
     DocAgent,
     JiraAgent,
     ManagerAgent,
@@ -84,6 +85,7 @@ async def run_workflow(
     doc_agent = DocAgent("doc_agent", broker, mcp_url)
     pdf_agent = PdfAgent("pdf_agent", broker, mcp_url)
     search_agent = SearchAgent("search_agent", broker, mcp_url)
+    decision_agent = DecisionAgent("decision_agent", broker, mcp_url)
     synthesis_agent = SynthesisAgent("synthesis_agent", broker, mcp_url)
     manager_agent = ManagerAgent("manager_agent", broker, mcp_url)
     
@@ -93,6 +95,7 @@ async def run_workflow(
         doc_agent,
         pdf_agent,
         search_agent,
+        decision_agent,
         synthesis_agent,
         manager_agent,
     ]

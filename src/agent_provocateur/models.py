@@ -1,5 +1,23 @@
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel, Field
+
+
+class LlmRequest(BaseModel):
+    """Model for LLM request."""
+    
+    prompt: str = Field(..., description="The prompt to send to the LLM")
+    temperature: float = Field(0.7, description="Temperature for generation (0.0-1.0)")
+    max_tokens: int = Field(1000, description="Maximum number of tokens to generate")
+    system_prompt: Optional[str] = Field(None, description="Optional system prompt")
+    context: Optional[Dict[str, Any]] = Field(None, description="Optional context data")
+
+
+class LlmResponse(BaseModel):
+    """Model for LLM response."""
+    
+    text: str = Field(..., description="The generated text")
+    usage: Dict[str, int] = Field(..., description="Token usage statistics")
+    model: str = Field(..., description="Model used for generation")
 
 
 class JiraTicket(BaseModel):

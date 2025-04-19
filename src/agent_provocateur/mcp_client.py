@@ -6,6 +6,8 @@ import httpx
 from agent_provocateur.models import (
     DocumentContent,
     JiraTicket,
+    LlmRequest,
+    LlmResponse,
     PdfDocument,
     SearchResult,
     SearchResults,
@@ -92,6 +94,40 @@ class McpClient:
         response.raise_for_status()
         results = SearchResults(**response.json())
         return results.results
+        
+    async def generate_text(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        system_prompt: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmResponse:
+        """Generate text using the LLM.
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            temperature: Temperature for generation (0.0-1.0)
+            max_tokens: Maximum number of tokens to generate
+            system_prompt: Optional system prompt
+            context: Optional context data
+            
+        Returns:
+            LlmResponse: The generated text response
+            
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+        """
+        request = LlmRequest(
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            system_prompt=system_prompt,
+            context=context,
+        )
+        response = await self.client.post("/llm/generate", json=request.dict())
+        response.raise_for_status()
+        return LlmResponse(**response.json())
     
     async def update_server_config(
         self,
@@ -167,6 +203,21 @@ class SyncMcpClient:
     def search_web(self, query: str) -> List[SearchResult]:
         """Search the web synchronously."""
         return asyncio.run(self.async_client.search_web(query))
+        
+    def generate_text(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        system_prompt: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmResponse:
+        """Generate text using the LLM synchronously."""
+        return asyncio.run(
+            self.async_client.generate_text(
+                prompt, temperature, max_tokens, system_prompt, context
+            )
+        )
     
     def update_server_config(
         self,
