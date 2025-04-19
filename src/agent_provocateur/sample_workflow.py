@@ -30,12 +30,12 @@ async def check_server_health(url: str) -> bool:
     """
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{url}/config", timeout=2.0)
+            response = await client.get(f"{url}/config", timeout=5.0)
             if response.status_code != 200:
                 return False
             
             # Try a simple JIRA ticket request to ensure full functionality
-            response = await client.get(f"{url}/jira/ticket/AP-1", timeout=2.0)
+            response = await client.get(f"{url}/jira/ticket/AP-1", timeout=5.0)
             return response.status_code == 200
     except Exception:
         return False
