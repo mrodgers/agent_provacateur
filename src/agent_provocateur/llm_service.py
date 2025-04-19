@@ -242,13 +242,25 @@ class OllamaProvider(LlmProvider):
                 messages.insert(0, {"role": "system", "content": request.system_prompt})
                 
             try:
-                response = await self.client.chat(
-                    model=model,
-                    messages=messages,
-                    temperature=request.temperature,
-                    options={"num_predict": request.max_tokens},
-                    stream=False,
-                )
+                # Check specific version/API compatibility
+                try:
+                    response = await self.client.chat(
+                        model=model,
+                        messages=messages,
+                        options={
+                            "temperature": request.temperature,
+                            "num_predict": request.max_tokens
+                        },
+                        stream=False,
+                    )
+                except TypeError:
+                    # Older versions might have a different API
+                    logging.info("Using alternative Ollama API format")
+                    response = await self.client.chat(
+                        model=model,
+                        messages=messages,
+                        stream=False,
+                    )
                 return self._process_ollama_chat_response(response, model)
             except Exception as e:
                 logging.error(f"Error generating text with Ollama: {e}")
@@ -262,13 +274,25 @@ class OllamaProvider(LlmProvider):
                 if request.system_prompt:
                     prompt = f"{request.system_prompt}\n\n{prompt}"
                     
-                response = await self.client.generate(
-                    model=model,
-                    prompt=prompt,
-                    temperature=request.temperature,
-                    options={"num_predict": request.max_tokens},
-                    stream=False,
-                )
+                # Check specific version/API compatibility
+                try:
+                    response = await self.client.generate(
+                        model=model,
+                        prompt=prompt,
+                        options={
+                            "temperature": request.temperature,
+                            "num_predict": request.max_tokens
+                        },
+                        stream=False,
+                    )
+                except TypeError:
+                    # Older versions might have a different API
+                    logging.info("Using alternative Ollama API format")
+                    response = await self.client.generate(
+                        model=model,
+                        prompt=prompt,
+                        stream=False,
+                    )
                 return self._process_ollama_generate_response(response, model)
             except Exception as e:
                 logging.error(f"Error generating text with Ollama: {e}")
@@ -287,16 +311,38 @@ class OllamaProvider(LlmProvider):
         Returns:
             LlmResponse: The processed response
         """
+        # Handle response based on its type
+        if isinstance(response, dict):
+            # Handle dictionary response (newer Ollama versions)
+            if "message" in response and isinstance(response["message"], dict):
+                text = response["message"].get("content", "")
+            else:
+                text = response.get("response", "")
+                
+            prompt_tokens = response.get("prompt_eval_count", 0)
+            completion_tokens = response.get("eval_count", 0)
+            finish_reason = response.get("done", True)
+        else:
+            # Handle object response (older Ollama versions)
+            if hasattr(response, "message") and hasattr(response.message, "content"):
+                text = response.message.content
+            else:
+                text = response.response if hasattr(response, "response") else str(response)
+                
+            prompt_tokens = response.prompt_eval_count if hasattr(response, "prompt_eval_count") else 0
+            completion_tokens = response.eval_count if hasattr(response, "eval_count") else 0
+            finish_reason = response.done if hasattr(response, "done") else "completed"
+            
         return LlmResponse(
-            text=response.message.content,
+            text=text,
             usage=LlmResponseUsage(
-                prompt_tokens=response.prompt_eval_count,
-                completion_tokens=response.eval_count,
-                total_tokens=response.prompt_eval_count + response.eval_count,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
             ),
             model=model,
             provider="ollama",
-            finish_reason=response.done if hasattr(response, "done") else "completed",
+            finish_reason=str(finish_reason),
         )
     
     def _process_ollama_generate_response(self, response: Any, model: str) -> LlmResponse:
@@ -309,16 +355,30 @@ class OllamaProvider(LlmProvider):
         Returns:
             LlmResponse: The processed response
         """
+        # Handle response based on its type
+        if isinstance(response, dict):
+            # Handle dictionary response (newer Ollama versions)
+            text = response.get("response", "")
+            prompt_tokens = response.get("prompt_eval_count", 0)
+            completion_tokens = response.get("eval_count", 0)
+            finish_reason = response.get("done", True)
+        else:
+            # Handle object response (older Ollama versions)
+            text = response.response if hasattr(response, "response") else str(response)
+            prompt_tokens = response.prompt_eval_count if hasattr(response, "prompt_eval_count") else 0
+            completion_tokens = response.eval_count if hasattr(response, "eval_count") else 0
+            finish_reason = response.done if hasattr(response, "done") else "completed"
+            
         return LlmResponse(
-            text=response.response,
+            text=text,
             usage=LlmResponseUsage(
-                prompt_tokens=response.prompt_eval_count,
-                completion_tokens=response.eval_count,
-                total_tokens=response.prompt_eval_count + response.eval_count,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
             ),
             model=model,
             provider="ollama",
-            finish_reason=response.done if hasattr(response, "done") else "completed",
+            finish_reason=str(finish_reason),
         )
 
 
