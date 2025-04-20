@@ -10,6 +10,8 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **Agent-to-Agent (A2A) Communication**: Structured messaging system for agent coordination and task delegation with reliable deduplication
 - **Agent Framework**: Base classes and utilities for building collaborative agent systems
 - **LLM Integration**: Support for multiple LLM providers including local Ollama models
+- **Document Types**: Support for multiple document types (text, PDF, image, code, structured data)
+- **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
 
 ## Installation
 
@@ -22,6 +24,12 @@ pip install -e ".[dev]"
 
 # With LLM support (Ollama)
 pip install -e ".[dev,llm]"
+
+# With monitoring support (Prometheus)
+pip install -e ".[dev,monitoring]"
+
+# With all features
+pip install -e ".[dev,llm,redis,monitoring]"
 ```
 
 ### Ollama Setup
@@ -52,12 +60,17 @@ For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 │       ├── a2a_redis.py          # Redis-based messaging
 │       ├── agent_base.py         # Base agent framework
 │       ├── agent_implementations.py # Sample agent implementations
-│       └── sample_workflow.py    # Demo workflow
-├── tests/                        # Test directory
+│       ├── sample_workflow.py    # Demo workflow
+│       └── sample_document_workflow.py # Document workflow demo
+├── tests/
 │   ├── __init__.py
 │   ├── test_main.py              # Tests for MCP server
 │   ├── test_a2a_messaging.py     # Tests for A2A messaging
-│   └── test_agent_base.py        # Tests for agent framework
+│   ├── test_agent_base.py        # Tests for agent framework
+│   ├── test_document_loader.py   # Tests for document loading
+│   ├── test_document_processing.py # Tests for document processing
+│   └── test_data/                # Test data directory
+│       └── documents/            # Test document files
 ├── CLAUDE.md                     # Guide for Claude AI
 ├── LICENSE                       # MIT License
 ├── README.md                     # This file
@@ -66,6 +79,35 @@ For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ├── pyproject.toml                # Project configuration
 └── setup.py                      # Installation script
 ```
+
+## Document Types
+
+Agent Provocateur supports multiple document types:
+
+### Text Documents (DocumentContent)
+- Markdown and HTML content
+- Text analysis capabilities
+- Format: Markdown with optional HTML
+
+### PDF Documents (PdfDocument)
+- Page-by-page text extraction
+- Metadata support
+- URLs for source tracking
+
+### Image Documents (ImageDocument)
+- Image metadata (dimensions, format)
+- Alt text and captions
+- Source URL tracking
+
+### Code Documents (CodeDocument)
+- Source code with language identification
+- Line counting and code metrics
+- Support for syntax highlighting
+
+### Structured Data Documents (StructuredDataDocument)
+- JSON, YAML, and other structured formats
+- Schema validation options
+- Data exploration capabilities
 
 ## Development
 
@@ -91,6 +133,12 @@ ruff check .
 python -m agent_provocateur.main --host 127.0.0.1 --port 8000
 # Or using entry point
 ap-server --host 127.0.0.1 --port 8000
+
+# Start with Prometheus metrics on port 8001
+ap-server --metrics-port 8001
+
+# Disable metrics
+ap-server --no-metrics
 ```
 
 ### Using the CLI Client
@@ -118,6 +166,12 @@ ap-client ticket AP-1 --json
 
 # Connect to a different server
 ap-client --server http://localhost:8008 ticket AP-1
+
+# List all available documents
+ap-client list-documents
+
+# List documents of a specific type
+ap-client list-documents --type code
 ```
 
 ### Using the LLM CLI
@@ -142,161 +196,87 @@ ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --temper
 ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --json
 ```
 
-### Using the Client SDK
+### Working with Documents
 
 ```python
-# Async client
 import asyncio
 from agent_provocateur.mcp_client import McpClient
 
 async def main():
     client = McpClient("http://localhost:8000")
-    try:
-        # Fetch a JIRA ticket
-        ticket = await client.fetch_ticket("AP-1")
-        print(f"Ticket summary: {ticket.summary}")
+    
+    # List all available documents
+    documents = await client.list_documents()
+    for doc in documents:
+        print(f"{doc.doc_id} ({doc.doc_type}): {doc.title}")
+    
+    # List documents of a specific type
+    code_docs = await client.list_documents(doc_type="code")
+    for doc in code_docs:
+        print(f"Code document: {doc.doc_id} - {doc.title}")
+    
+    # Get a specific document
+    doc = await client.get_document("code1")
+    if doc.doc_type == "code":
+        print(f"Language: {doc.language}")
+        print(f"Line count: {doc.line_count}")
+        print(f"Content sample: {doc.content[:100]}...")
+    
+    # Working with structured data documents
+    data_doc = await client.get_document("data1")
+    if data_doc.doc_type == "structured_data":
+        print(f"Format: {data_doc.format}")
+        print(f"Top-level keys: {list(data_doc.data.keys())}")
         
-        # Search the web
-        results = await client.search_web("agent protocol")
-        for result in results:
-            print(f"- {result.title}: {result.snippet}")
-            
-        # Use the LLM with Mock provider
-        llm_response = await client.generate_text(
-            prompt="Why is the sky blue?",
-            provider="mock"
-        )
-        print(f"LLM response: {llm_response.text}")
-        
-        # Use Ollama with chat format
-        llm_response = await client.generate_text(
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant"},
-                {"role": "user", "content": "Why is the sky blue?"}
-            ],
-            provider="ollama",
-            model="llama3",
-            temperature=0.3
-        )
-        print(f"Ollama response: {llm_response.text}")
-    finally:
-        await client.close()
+        # Process data based on format
+        if data_doc.format == "json":
+            config = data_doc.data.get("configuration", {})
+            print(f"Configuration: {config}")
 
 asyncio.run(main())
-
-# Synchronous client
-from agent_provocateur.mcp_client import SyncMcpClient
-
-with SyncMcpClient("http://localhost:8000") as client:
-    ticket = client.fetch_ticket("AP-1")
-    print(f"Ticket: {ticket.id} - {ticket.summary}")
-    
-    # Use the LLM
-    llm_response = client.generate_text(
-        prompt="Why is the sky blue?",
-        provider="mock"  # or "ollama"
-    )
-    print(f"LLM response: {llm_response.text}")
 ```
 
-### Running the Sample Agent Workflow
+### Running the Document Sample Workflow
 
 ```bash
 # Start the MCP server in one terminal
 ap-server
 
-# Run the sample workflow in another terminal
-ap-workflow "agent protocol research" --ticket AP-1 --doc doc1
+# Run the sample document workflow in another terminal
+python -m agent_provocateur.sample_document_workflow
 ```
 
-### Using the Agent Framework
+### Monitoring with Prometheus and Grafana
 
-```python
-import asyncio
-from agent_provocateur.a2a_messaging import InMemoryMessageBroker
-from agent_provocateur.agent_base import BaseAgent
-from agent_provocateur.a2a_models import TaskStatus
+The project includes Prometheus metrics integration with Pushgateway and a pre-configured Grafana dashboard.
 
-# Create your custom agent
-class MyAgent(BaseAgent):
-    async def handle_custom_task(self, task_request):
-        # Process the task
-        result = {"status": "success", "data": task_request.payload}
-        return result
+```bash
+# Install monitoring dependencies
+pip install -e ".[monitoring]"
 
-# Create an LLM-powered agent
-class LlmAgent(BaseAgent):
-    async def handle_generate_response(self, task_request):
-        # Extract parameters from the task
-        query = task_request.payload.get("query", "")
-        provider = task_request.payload.get("provider", "mock")
-        model = task_request.payload.get("model")
-        
-        # Use the LLM to generate a response
-        llm_response = await self.async_mcp_client.generate_text(
-            prompt=query,
-            provider=provider,
-            model=model,
-            temperature=0.5,
-        )
-        
-        # Return the result
-        return {
-            "text": llm_response.text,
-            "model": llm_response.model,
-            "provider": llm_response.provider,
-            "token_usage": {
-                "prompt": llm_response.usage.prompt_tokens,
-                "completion": llm_response.usage.completion_tokens,
-                "total": llm_response.usage.total_tokens,
-            }
-        }
+# Start the MCP server with metrics enabled (default port 8001)
+ap-server --pushgateway localhost:9091
 
-async def main():
-    # Create shared broker and agents
-    broker = InMemoryMessageBroker()
-    agent1 = MyAgent("agent1", broker)
-    agent2 = BaseAgent("agent2", broker)
-    llm_agent = LlmAgent("llm_agent", broker, "http://localhost:8000")
-    
-    # Start agents
-    await agent1.start()
-    await agent2.start()
-    await llm_agent.start()
-    
-    try:
-        # Send a request from agent2 to agent1
-        result = await agent2.send_request_and_wait(
-            target_agent="agent1",
-            intent="custom_task",
-            payload={"key": "value"},
-        )
-        
-        # Process the result
-        if result and result.status == TaskStatus.COMPLETED:
-            print(f"Task completed: {result.output}")
-            
-        # Use the LLM agent
-        llm_result = await agent2.send_request_and_wait(
-            target_agent="llm_agent",
-            intent="generate_response",
-            payload={
-                "query": "What are the benefits of agent-based architectures?",
-                "provider": "ollama",  # or "mock" for testing
-                "model": "llama3",     # Only needed for Ollama
-            },
-        )
-        
-        if llm_result and llm_result.status == TaskStatus.COMPLETED:
-            print(f"LLM response: {llm_result.output['text']}")
-    finally:
-        # Stop agents
-        await agent1.stop()
-        await agent2.stop()
-        await llm_agent.stop()
+# Start Prometheus, Pushgateway, and Grafana with Docker/Podman
+cd monitoring
+docker-compose up -d
+# or with podman
+podman-compose up -d
 
-asyncio.run(main())
+# Access the dashboards
+open http://localhost:3000  # Grafana (admin/agent_provocateur)
+open http://localhost:9090  # Prometheus
+open http://localhost:9091  # Pushgateway
 ```
+
+Available metrics include:
+- MCP client request counts and latencies
+- A2A message counts and processing times
+- Agent task counts, statuses, and durations
+- LLM request statistics
+- System information
+
+For more details, see [monitoring/README.md](monitoring/README.md).
 
 ## License
 

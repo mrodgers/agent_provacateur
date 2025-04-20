@@ -29,6 +29,9 @@ redis = [
 llm = [
     "ollama>=0.1.0",
 ]
+monitoring = [
+    "prometheus-client>=0.14.0",
+]
 
 [tool.setuptools]
 packages = ["agent_provocateur"]
