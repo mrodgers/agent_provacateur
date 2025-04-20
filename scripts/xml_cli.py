@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Path to run: scripts/xml_cli.py
 """
 Command-line tool for working with XML documents in Agent Provocateur.
 
@@ -24,7 +25,11 @@ async def list_xml_docs(args):
     else:
         print(f"Found {len(docs)} XML documents:")
         for doc in docs:
-            print(f"- {doc.doc_id}: {doc.title} ({doc.root_element})")
+            # Check if it's an XmlDocument with root_element
+            if hasattr(doc, 'root_element'):
+                print(f"- {doc.doc_id}: {doc.title} ({doc.root_element})")
+            else:
+                print(f"- {doc.doc_id}: {doc.title} (XML Document)")
 
 
 async def get_xml_doc(args):
@@ -67,7 +72,12 @@ async def upload_xml(args):
     client = McpClient(base_url=args.server)
     try:
         # Load XML from file
-        xml_file_path = Path(args.file)
+        file_path = args.file
+        # If it's a relative path in examples, adjust it
+        if not file_path.startswith('/'):
+            file_path = f"examples/{file_path}"
+            
+        xml_file_path = Path(file_path)
         if not xml_file_path.exists():
             print(f"Error: File {xml_file_path} does not exist")
             sys.exit(1)

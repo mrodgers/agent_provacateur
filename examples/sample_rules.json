@@ -1,0 +1,29 @@
+{
+  "keyword_rules": {
+    "claim": ["all", "every", "never", "always", "best", "worst", "only", "unique", "first", "100%"],
+    "statement": ["proves", "proven", "verified", "confirmed", "established", "shows", "demonstrates"],
+    "finding": ["significant", "breakthrough", "revolutionary", "unprecedented", "game-changing"],
+    "fact": ["fact", "evidence", "proof", "data", "research", "study", "survey", "statistic"],
+    "reference": ["according", "cited", "source", "reference", "publication", "report", "journal"],
+    "result": ["shows", "demonstrates", "indicates", "suggests", "concludes", "finds", "revealed"],
+    "statistic": ["percent", "percentage", "rate", "number", "average", "mean", "median", "increase", "decrease"]
+  },
+  "attribute_rules": {
+    "confidence": ["low", "medium", "uncertain", "preliminary"],
+    "status": ["unverified", "preliminary", "pending", "disputed", "controversial"],
+    "type": ["claim", "assertion", "statement", "opinion", "observation"],
+    "source": ["press", "news", "self-reported", "anecdotal", "unconfirmed", "estimated"]
+  },
+  "content_patterns": [
+    "\\d+%",
+    "\\$\\d+",
+    "\\b\\d{4}\\b",
+    "(increased|decreased|improved|reduced) by \\d+",
+    "(most|best|worst|highest|lowest|first|only|never|always)",
+    "([A-Z][a-z]+\\s)+said|reported|claimed|stated",
+    "according to [A-Z][a-z]+",
+    "\\d+ (percent|per cent|percentage) of",
+    "more than \\d+",
+    "less than \\d+"
+  ]
+}

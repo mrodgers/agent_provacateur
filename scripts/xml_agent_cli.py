@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Path to run: scripts/xml_agent_cli.py
 """
 Command-line tool for XML Agent functionality in Agent Provocateur.
 
@@ -29,7 +30,12 @@ async def advanced_identify(args):
     try:
         # Load XML file
         if args.file:
-            xml_file_path = Path(args.file)
+            file_path = args.file
+            # If it's a relative path in examples, adjust it
+            if not file_path.startswith('/'):
+                file_path = f"examples/{file_path}"
+                
+            xml_file_path = Path(file_path)
             if not xml_file_path.exists():
                 print(f"Error: File {xml_file_path} does not exist")
                 sys.exit(1)
@@ -51,14 +57,19 @@ async def advanced_identify(args):
         
         if args.rules_file:
             try:
-                with open(args.rules_file, 'r') as f:
+                rules_path = args.rules_file
+                # If it's a relative path in examples, adjust it
+                if not rules_path.startswith('/'):
+                    rules_path = f"examples/{rules_path}"
+                
+                with open(rules_path, 'r') as f:
                     rules = json.load(f)
                 
                 keyword_rules = rules.get("keyword_rules")
                 attribute_rules = rules.get("attribute_rules")
                 content_patterns = rules.get("content_patterns")
                 
-                print(f"Loaded custom rules from {args.rules_file}")
+                print(f"Loaded custom rules from {rules_path}")
             except Exception as e:
                 print(f"Error loading rules file: {e}")
                 sys.exit(1)
@@ -108,10 +119,19 @@ async def create_verification_plan(args):
         broker = InMemoryMessageBroker()
         agent = XmlAgent(agent_id="xml_agent", broker=broker, mcp_url=args.server)
         
+        # Initialize verification config
+        agent.verification_config = {
+            "min_confidence": 0.5,
+            "custom_rules": {},
+            "prioritize_recent": True,
+            "max_nodes_per_task": 5
+        }
+        
         # Create request
         task_request = TaskRequest(
             task_id="cli_task",
             source_agent="cli_user",
+            target_agent="xml_agent",
             intent="create_verification_plan",
             payload={"doc_id": args.doc_id}
         )
@@ -159,6 +179,14 @@ async def batch_verify(args):
         broker = InMemoryMessageBroker()
         agent = XmlAgent(agent_id="xml_agent", broker=broker, mcp_url=args.server)
         
+        # Initialize verification config
+        agent.verification_config = {
+            "min_confidence": 0.5,
+            "custom_rules": {},
+            "prioritize_recent": True,
+            "max_nodes_per_task": 5
+        }
+        
         # Create request with options
         options = {
             "search_depth": args.search_depth,
@@ -169,6 +197,7 @@ async def batch_verify(args):
         task_request = TaskRequest(
             task_id="cli_task",
             source_agent="cli_user",
+            target_agent="xml_agent",
             intent="batch_verify_nodes",
             payload={
                 "doc_id": args.doc_id,
