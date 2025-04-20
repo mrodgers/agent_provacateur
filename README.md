@@ -35,8 +35,11 @@ pip install -e ".[dev,monitoring]"
 # With BridgeIT support
 pip install -e ".[dev,bridgeit]"
 
+# With frontend support
+pip install -e ".[dev,frontend]"
+
 # With all features
-pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml]"
+pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend]"
 ```
 
 ### LLM Provider Setup
@@ -98,6 +101,10 @@ agent_provocateur/
 ├── examples/                   # Example files
 │   ├── sample.xml              # Sample XML document
 │   └── sample_rules.json       # Sample verification rules
+├── frontend/                   # Web UI 
+│   ├── static/                 # Static assets
+│   ├── templates/              # HTML templates
+│   └── server.py               # Frontend server
 ├── scripts/                    # CLI and utility scripts
 │   ├── ap.sh                   # Main CLI script
 │   ├── xml_cli.py              # XML document CLI
@@ -369,6 +376,31 @@ Available metrics include:
 - System information
 
 For more details, see [Monitoring README](monitoring/README.md).
+
+### Using the Web UI
+
+The Agent Provocateur web UI provides a user-friendly interface for working with documents, agents, and research workflows:
+
+```bash
+# Install frontend dependencies
+pip install -e ".[frontend]"
+
+# Start the backend MCP server in one terminal
+ap-server --host 127.0.0.1 --port 8000
+
+# Start the frontend server in another terminal
+python frontend/server.py --host 127.0.0.1 --port 3000
+
+# Access the web UI in your browser
+open http://localhost:3000
+```
+
+The web UI provides:
+- Dashboard with system overview
+- Document management
+- XML research interface
+- Agent configuration
+- LLM interaction
 
 ## Architecture and Design
 

@@ -43,6 +43,9 @@ xml = [
     "xmlschema>=2.0.0",  # XML Schema validation
     "defusedxml>=0.7.1",  # XML security
 ]
+frontend = [
+    "jinja2>=3.0.0",  # For templating
+]
 
 [tool.setuptools]
 packages = ["agent_provocateur"]
