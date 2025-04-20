@@ -16,11 +16,12 @@ Options:
 import argparse
 import logging
 import os
+import sys
 from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -33,12 +34,34 @@ app = FastAPI(title="Agent Provocateur UI")
 
 # Get the directory of this file
 base_dir = os.path.dirname(os.path.abspath(__file__))
+logger.info(f"Base directory: {base_dir}")
+
+# Make sure the static directory exists
+static_dir = os.path.join(base_dir, "static")
+if not os.path.exists(static_dir):
+    logger.error(f"Static directory does not exist: {static_dir}")
+    sys.exit(1)
+
+# Make sure the templates directory exists
+templates_dir = os.path.join(base_dir, "templates")
+if not os.path.exists(templates_dir):
+    logger.error(f"Templates directory does not exist: {templates_dir}")
+    sys.exit(1)
+
+# Log file paths to help with debugging
+js_dir = os.path.join(static_dir, "js")
+if os.path.exists(js_dir):
+    logger.info(f"JS directory found: {js_dir}")
+    for file in os.listdir(js_dir):
+        logger.info(f"  - {file}")
+else:
+    logger.error(f"JS directory does not exist: {js_dir}")
 
 # Mount static files directory
-app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "static")), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Setup templates
-templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+templates = Jinja2Templates(directory=templates_dir)
 
 # Add CORS middleware
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,6 +101,18 @@ async def fallback(request: Request):
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "backend_url": BACKEND_API_URL}
+
+@app.get("/static/js/{script_name}")
+async def get_js(script_name: str):
+    """Serve JavaScript files directly."""
+    js_path = os.path.join(base_dir, "static", "js", script_name)
+    logger.info(f"Serving JS file: {js_path}")
+    
+    if not os.path.exists(js_path):
+        logger.error(f"JS file not found: {js_path}")
+        return {"error": "File not found"}, 404
+    
+    return FileResponse(js_path, media_type="application/javascript")
 
 
 def main() -> int:
