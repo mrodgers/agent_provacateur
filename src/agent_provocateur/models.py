@@ -1,5 +1,6 @@
-from typing import Any, Dict, List, Optional, Union, Literal
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel, Field, validator
+import datetime
 
 
 class LlmMessage(BaseModel):
@@ -44,6 +45,18 @@ class LlmResponse(BaseModel):
     finish_reason: Optional[str] = Field(None, description="Reason for completion")
 
 
+# Base document type
+class Document(BaseModel):
+    """Base model for all document types."""
+    
+    doc_id: str = Field(..., description="Unique identifier for the document")
+    doc_type: str = Field(..., description="Type of document")
+    title: str = Field(..., description="Document title")
+    created_at: str = Field(..., description="Document creation timestamp")
+    updated_at: Optional[str] = Field(None, description="Document last update timestamp")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Document metadata")
+
+
 class JiraTicket(BaseModel):
     """Model for JIRA ticket data."""
     
@@ -53,12 +66,12 @@ class JiraTicket(BaseModel):
     summary: str
 
 
-class DocumentContent(BaseModel):
-    """Model for document content."""
+class DocumentContent(Document):
+    """Model for text document content."""
     
-    doc_id: str
-    markdown: str
-    html: Optional[str] = None
+    markdown: str = Field(..., description="Markdown content of the document")
+    html: Optional[str] = Field(None, description="HTML content of the document")
+    doc_type: str = Field("text", const=True, description="Document type identifier")
 
 
 class PdfPage(BaseModel):
@@ -68,11 +81,75 @@ class PdfPage(BaseModel):
     page_number: int
 
 
-class PdfDocument(BaseModel):
+class PdfDocument(Document):
     """Model for PDF document content."""
     
-    url: str
-    pages: List[PdfPage]
+    url: str = Field(..., description="URL to the original PDF file")
+    pages: List[PdfPage] = Field(..., description="List of PDF pages with extracted text")
+    doc_type: str = Field("pdf", const=True, description="Document type identifier")
+
+
+class ImageDocument(Document):
+    """Model for image document content."""
+    
+    url: str = Field(..., description="URL to the image file")
+    alt_text: str = Field("", description="Alternative text for the image")
+    caption: Optional[str] = Field(None, description="Caption for the image")
+    width: Optional[int] = Field(None, description="Width of the image in pixels")
+    height: Optional[int] = Field(None, description="Height of the image in pixels")
+    format: str = Field(..., description="Image format (png, jpg, etc.)")
+    doc_type: str = Field("image", const=True, description="Document type identifier")
+
+
+class CodeDocument(Document):
+    """Model for code document content."""
+    
+    content: str = Field(..., description="Code content")
+    language: str = Field(..., description="Programming language")
+    line_count: int = Field(..., description="Number of lines in the code")
+    doc_type: str = Field("code", const=True, description="Document type identifier")
+
+
+class StructuredDataDocument(Document):
+    """Model for structured data document content."""
+    
+    data: Dict[str, Any] = Field(..., description="Structured data content")
+    schema_def: Optional[Dict[str, Any]] = Field(None, description="Schema definition for the data", alias="schema")
+    format: str = Field(..., description="Data format (json, csv, etc.)")
+    doc_type: str = Field("structured_data", const=True, description="Document type identifier")
+
+
+class XmlNode(BaseModel):
+    """Model for an XML node that needs verification."""
+    
+    xpath: str = Field(..., description="XPath to the node")
+    element_name: str = Field(..., description="Name of the element")
+    content: Optional[str] = Field(None, description="Text content of the node")
+    attributes: Dict[str, str] = Field(default_factory=dict, description="Node attributes")
+    verification_status: str = Field("pending", description="Verification status")
+    verification_data: Dict[str, Any] = Field(default_factory=dict, description="Verification results")
+
+
+class XmlDocument(Document):
+    """Model for XML document content."""
+    
+    content: str = Field(..., description="Raw XML content")
+    schema_url: Optional[str] = Field(None, description="URL to XML schema definition")
+    root_element: str = Field(..., description="Name of the root element")
+    namespaces: Dict[str, str] = Field(default_factory=dict, description="XML namespaces")
+    researchable_nodes: List[XmlNode] = Field(default_factory=list, description="Nodes requiring verification")
+    doc_type: str = Field("xml", const=True, description="Document type identifier")
+    
+    @validator('content')
+    def validate_xml_content(cls, v):
+        """Validate that the content is valid XML."""
+        try:
+            # Import here to avoid circular imports
+            from defusedxml import ElementTree
+            ElementTree.fromstring(v)
+            return v
+        except Exception as e:
+            raise ValueError(f"Invalid XML content: {str(e)}")
 
 
 class SearchResult(BaseModel):

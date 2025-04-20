@@ -15,6 +15,8 @@ from agent_provocateur.models import (
     ImageDocument,
     CodeDocument,
     StructuredDataDocument,
+    XmlDocument,
+    XmlNode,
 )
 from agent_provocateur.metrics import (
     instrument_mcp_client,
@@ -198,6 +200,82 @@ class McpClient:
             return documents
     
     @instrument_mcp_client
+    async def get_xml_document(self, doc_id: str) -> XmlDocument:
+        """Get an XML document by ID.
+        
+        Args:
+            doc_id: The document ID
+            
+        Returns:
+            XmlDocument: The XML document
+            
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/documents/{doc_id}/xml")
+            response.raise_for_status()
+            return XmlDocument(**response.json())
+    
+    @instrument_mcp_client
+    async def get_xml_content(self, doc_id: str) -> str:
+        """Get raw XML content for a document.
+        
+        Args:
+            doc_id: The document ID
+            
+        Returns:
+            str: The raw XML content
+            
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/documents/{doc_id}/xml/content")
+            response.raise_for_status()
+            return response.text
+    
+    @instrument_mcp_client
+    async def get_xml_researchable_nodes(self, doc_id: str) -> List[XmlNode]:
+        """Get researchable nodes for an XML document.
+        
+        Args:
+            doc_id: The document ID
+            
+        Returns:
+            List[XmlNode]: The list of researchable nodes
+            
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/documents/{doc_id}/xml/nodes")
+            response.raise_for_status()
+            return [XmlNode(**node) for node in response.json()]
+    
+    @instrument_mcp_client
+    async def upload_xml(self, xml_content: str, title: str) -> XmlDocument:
+        """Upload a new XML document.
+        
+        Args:
+            xml_content: The raw XML content
+            title: The document title
+            
+        Returns:
+            XmlDocument: The created XML document
+            
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/xml/upload",
+                json={"xml_content": xml_content, "title": title}
+            )
+            response.raise_for_status()
+            return XmlDocument(**response.json())
+    
+    @instrument_mcp_client
     async def get_document(self, doc_id: str) -> Document:
         """Get a document by ID.
         
@@ -272,6 +350,15 @@ class McpClient:
                     data=data.get("data", {}),
                     schema=data.get("schema_def"),  # Using 'schema' instead of 'schema_def'
                     format=data.get("format", "")
+                )
+            elif doc_type == "xml":
+                return XmlDocument(
+                    **basic_fields,
+                    content=data.get("content", ""),
+                    schema_url=data.get("schema_url"),
+                    root_element=data.get("root_element", ""),
+                    namespaces=data.get("namespaces", {}),
+                    researchable_nodes=data.get("researchable_nodes", [])
                 )
             else:
                 # Default to base Document class if type is unknown

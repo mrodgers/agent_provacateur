@@ -10,7 +10,8 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **Agent-to-Agent (A2A) Communication**: Structured messaging system for agent coordination and task delegation with reliable deduplication
 - **Agent Framework**: Base classes and utilities for building collaborative agent systems
 - **LLM Integration**: Support for multiple LLM providers including local Ollama models and Cisco's BridgeIT platform
-- **Document Types**: Support for multiple document types (text, PDF, image, code, structured data)
+- **Document Types**: Support for multiple document types (text, PDF, image, code, structured data, XML)
+- **Verification System**: Advanced verification for XML claims and statements with confidence scoring
 - **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
 
 ## Installation
@@ -25,6 +26,9 @@ pip install -e ".[dev]"
 # With LLM support (Ollama)
 pip install -e ".[dev,llm]"
 
+# With XML support
+pip install -e ".[dev,xml]"
+
 # With monitoring support (Prometheus)
 pip install -e ".[dev,monitoring]"
 
@@ -32,7 +36,7 @@ pip install -e ".[dev,monitoring]"
 pip install -e ".[dev,bridgeit]"
 
 # With all features
-pip install -e ".[dev,llm,bridgeit,redis,monitoring]"
+pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml]"
 ```
 
 ### LLM Provider Setup
@@ -97,6 +101,8 @@ For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 │       ├── a2a_redis.py          # Redis-based messaging
 │       ├── agent_base.py         # Base agent framework
 │       ├── agent_implementations.py # Sample agent implementations
+│       ├── xml_parser.py         # XML parsing utilities
+│       ├── xml_agent.py          # XML analysis agent
 │       ├── sample_workflow.py    # Demo workflow
 │       └── sample_document_workflow.py # Document workflow demo
 ├── tests/
@@ -106,8 +112,12 @@ For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 │   ├── test_agent_base.py        # Tests for agent framework
 │   ├── test_document_loader.py   # Tests for document loading
 │   ├── test_document_processing.py # Tests for document processing
+│   ├── test_xml_agent.py         # Tests for XML agent
 │   └── test_data/                # Test data directory
 │       └── documents/            # Test document files
+├── xml_cli.py                    # XML document CLI
+├── xml_agent_cli.py              # XML agent CLI
+├── sample_rules.json             # Sample XML verification rules
 ├── CLAUDE.md                     # Guide for Claude AI
 ├── LICENSE                       # MIT License
 ├── README.md                     # This file
@@ -145,6 +155,12 @@ Agent Provocateur supports multiple document types:
 - JSON, YAML, and other structured formats
 - Schema validation options
 - Data exploration capabilities
+
+### XML Documents (XmlDocument)
+- XML content with namespace support
+- Researchable node identification
+- Verification planning and execution
+- Confidence scoring for claims and statements
 
 ## Development
 
@@ -209,6 +225,73 @@ ap-client list-documents
 
 # List documents of a specific type
 ap-client list-documents --type code
+```
+
+### Working with XML Documents
+
+The XML Agent provides advanced capabilities for working with XML documents, identifying content that requires verification, and planning verification tasks.
+
+#### XML Document Handling
+
+```bash
+# Using the XML CLI tool
+python xml_cli.py list               # List all XML documents
+python xml_cli.py get xml1           # Get XML document details
+python xml_cli.py get xml1 --content # Show XML content
+python xml_cli.py get xml1 --nodes   # Show researchable nodes
+python xml_cli.py upload sample.xml --title "Product Catalog"  # Upload new XML document
+```
+
+#### XML Agent Capabilities
+
+```bash
+# Using the XML Agent CLI tool
+python xml_agent_cli.py identify --file sample.xml --confidence 0.4 --evidence  # Identify researchable nodes
+python xml_agent_cli.py identify --doc_id xml1 --rules-file sample_rules.json   # Use custom rules
+python xml_agent_cli.py plan xml1                            # Create verification plan
+python xml_agent_cli.py verify xml1 --search-depth high      # Test batch verification
+```
+
+#### XML Agent API
+
+```python
+import asyncio
+from agent_provocateur.xml_agent import XmlAgent
+from agent_provocateur.a2a_models import TaskRequest
+
+async def main():
+    # Initialize agent
+    agent = XmlAgent(agent_id="xml_agent")
+    
+    # Create verification plan
+    task_request = TaskRequest(
+        task_id="test_task",
+        source_agent="test_agent",
+        intent="create_verification_plan",
+        payload={"doc_id": "xml1"}
+    )
+    
+    # Run the task
+    plan = await agent.handle_create_verification_plan(task_request)
+    print(f"Created verification plan with {len(plan['tasks'])} tasks")
+    
+    # Identify nodes with advanced rules
+    identify_request = TaskRequest(
+        task_id="identify_task",
+        source_agent="test_agent",
+        intent="identify_nodes",
+        payload={
+            "doc_id": "xml1",
+            "min_confidence": 0.6,
+            "content_patterns": [r"\d+%", r"(increased|decreased) by \d+"]
+        }
+    )
+    
+    # Run node identification
+    nodes_result = await agent.handle_identify_nodes(identify_request)
+    print(f"Identified {nodes_result['node_count']} nodes above confidence threshold")
+
+asyncio.run(main())
 ```
 
 ### Using the LLM CLI
