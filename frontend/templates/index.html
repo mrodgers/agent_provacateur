@@ -34,6 +34,9 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-xml.min.js"></script>
+    
+    <!-- Add vkBeautify for XML formatting -->
+    <script src="https://cdn.jsdelivr.net/npm/vkbeautify@0.99.3/vkbeautify.min.js"></script>
     <style>
         /* Add some basic styles for initial loading state */
         .loading-container {
@@ -57,6 +60,29 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* Override Prism.js default styling to ensure proper XML wrapping */
+        code[class*="language-"],
+        pre[class*="language-"] {
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+        
+        /* Ensure code blocks stay within their containers */
+        pre[class*="language-"] {
+            max-width: 100% !important;
+        }
+        
+        /* Add a subtle horizontal scrollbar only when needed */
+        pre[class*="language-"]::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        pre[class*="language-"]::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 2px;
         }
     </style>
 </head>
