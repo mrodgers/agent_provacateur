@@ -6,6 +6,7 @@
     <title>Agent Provocateur</title>
     <script>
         window.BACKEND_URL = "{{ backend_url }}";
+        window.DOC_ID = "{{ doc_id }}";
         // Add error logging
         window.onerror = function(message, source, lineno, colno, error) {
             console.error('Error:', message, 'at', source, lineno, colno);
@@ -28,6 +29,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Include Axios for API calls -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Add Prism.js for XML syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-xml.min.js"></script>
     <style>
         /* Add some basic styles for initial loading state */
         .loading-container {
@@ -55,9 +61,9 @@
     </style>
 </head>
 <body class="bg-gray-100">
-    <!-- Root element for React app -->
-    <div id="root" class="min-h-screen">
-        <!-- Initial loading state, replaced by React -->
+    <!-- Application container -->
+    <div id="app" class="min-h-screen">
+        <!-- Initial loading state, replaced by app -->
         <div class="loading-container">
             <div class="loading-spinner"></div>
             <p>Loading Agent Provocateur...</p>
@@ -67,9 +73,7 @@
     <!-- Error container for displaying errors -->
     <div id="error-container" class="fixed bottom-0 left-0 right-0 p-4"></div>
     
-    <!-- Our main app script -->
-    <script src="/static/js/main.js"></script>
-    <!-- Commented out complex app script for debugging -->
-    <!-- <script src="/static/js/app.js"></script> -->
+    <!-- Load the appropriate script based on page -->
+    <script src="/static/js/{{ page_script or 'landing.js' }}"></script>
 </body>
 </html>

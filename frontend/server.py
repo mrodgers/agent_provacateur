@@ -79,15 +79,33 @@ BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:8000")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, use_fallback: bool = False):
-    """Render the index page."""
+    """Render the landing page."""
     if use_fallback:
         return templates.TemplateResponse(
             "fallback.html", {"request": request, "backend_url": BACKEND_API_URL}
         )
     else:
-        return templates.TemplateResponse(
-            "index.html", {"request": request, "backend_url": BACKEND_API_URL}
+        # Modify index.html to use landing.js
+        response = templates.TemplateResponse(
+            "index.html", {"request": request, "backend_url": BACKEND_API_URL, "page_script": "landing.js"}
         )
+        return response
+
+@app.get("/document-viewer", response_class=HTMLResponse)
+async def document_viewer(request: Request):
+    """Render the document viewer page."""
+    # Get document ID from query parameters
+    doc_id = request.query_params.get("doc", "")
+    
+    # Pass the document ID to the template
+    return templates.TemplateResponse(
+        "index.html", {
+            "request": request, 
+            "backend_url": BACKEND_API_URL,
+            "page_script": "document_viewer.js",
+            "doc_id": doc_id
+        }
+    )
         
 @app.get("/fallback", response_class=HTMLResponse)
 async def fallback(request: Request):
