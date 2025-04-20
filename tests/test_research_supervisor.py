@@ -290,10 +290,10 @@ async def test_research_document_workflow():
     agent.detect_document_type.assert_called_once_with("xml1")
     
     # Verify the send_request_and_wait was called to extract entities
-    agent.send_request_and_wait.assert_called_with(
+    agent.send_request_and_wait.assert_any_call(
         target_agent="xml_agent",
         intent="extract_entities",
-        payload={"doc_id": "xml1"}
+        payload={"doc_id": "xml1", "options": {}}
     )
     
     # Verify workflow tracking
