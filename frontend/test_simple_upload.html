@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        form {
+            background: #f8f8f8;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="file"] {
+            margin-bottom: 15px;
+        }
+        button {
+            background: #4a76c7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #3a5fa0;
+        }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .troubleshooting {
+            margin-top: 20px;
+            background: #fffbf0;
+            padding: 15px;
+            border-left: 4px solid #f0c040;
+        }
+        .note {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Upload Test</h1>
+    
+    <p>This page provides a simplified form for testing document uploads directly.</p>
+    
+    <form action="/documents/upload" method="post" enctype="multipart/form-data">
+        <div>
+            <label for="title">Document Title:</label>
+            <input type="text" id="title" name="title" value="Test Document">
+            <div class="note">This will be displayed in the document list</div>
+        </div>
+        <div>
+            <label for="file">XML File:</label>
+            <input type="file" id="file" name="file" accept=".xml">
+            <div class="note">Only XML files are supported</div>
+        </div>
+        <button type="submit">Upload Document</button>
+    </form>
+    
+    <div class="troubleshooting">
+        <h3>Troubleshooting Tips</h3>
+        <ul>
+            <li>Make sure the file you're uploading is a valid XML file</li>
+            <li>Both the 'title' and 'file' fields are required</li>
+            <li>The upload will work even if the backend API (port 8000) is not available</li>
+            <li>Documents uploaded while offline will be stored locally only</li>
+            <li>Check the browser console (F12) for any error messages</li>
+        </ul>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Debug Information</h3>
+        <p>Server URL: <code>http://localhost:3001</code></p>
+        <p>Upload Endpoint: <code>/documents/upload</code></p>
+        <p>Expected Form Fields: <code>title</code> and <code>file</code></p>
+        <p>Content Type: <code>multipart/form-data</code></p>
+        <p>Backend API: <code id="backend-url">Loading...</code></p>
+    </div>
+    
+    <script>
+        // Get the backend URL from the server
+        fetch('/api/health')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('backend-url').textContent = data.backend_url || 'Not configured';
+            })
+            .catch(error => {
+                document.getElementById('backend-url').textContent = 'Error fetching backend URL';
+                console.error('Error:', error);
+            });
+    </script>
+</body>
+</html>
