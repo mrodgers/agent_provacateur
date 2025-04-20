@@ -1,0 +1,44 @@
+# Agent Provocateur Configuration
+
+agents:
+  document_agent:
+    type: DocAgent
+    config:
+      document_store: "./documents/"
+      supported_formats: ["md", "txt", "html"]
+  
+  pdf_agent:
+    type: PdfAgent
+    config:
+      pdf_store: "./documents/pdfs/"
+      extract_text: true
+      ocr_enabled: false
+
+  processing_agent:
+    type: DocumentProcessingAgent
+    config:
+      summarization_enabled: true
+      max_summary_length: 200
+
+server:
+  host: "localhost"
+  port: 8000
+  latency_ms: 50
+  error_rate: 0.01
+
+llm:
+  provider: "mock"
+  fallback_provider: "ollama"
+  models:
+    - name: "mock_model"
+      temperature: 0.7
+      max_tokens: 500
+    - name: "llama3"
+      temperature: 0.2
+      max_tokens: 1000
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/agent_provocateur.log"
+  console: true

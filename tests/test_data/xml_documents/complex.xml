@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product-catalog xmlns:prod="http://example.com/product" xmlns:mfg="http://example.com/manufacturer">
+    <prod:product id="p1">
+        <prod:name>Eco-friendly Water Bottle</prod:name>
+        <prod:description>Sustainable water bottle made from recycled materials.</prod:description>
+        <prod:price currency="USD">24.99</prod:price>
+        <prod:sustainability-score>9.5</prod:sustainability-score>
+        <prod:claims>
+            <prod:claim id="c1">Made from 100% recycled ocean plastic</prod:claim>
+            <prod:claim id="c2">Carbon-neutral manufacturing process</prod:claim>
+        </prod:claims>
+        <mfg:details>
+            <mfg:manufacturer>EcoGoods Inc.</mfg:manufacturer>
+            <mfg:country>Canada</mfg:country>
+            <mfg:certification>ISO 14001</mfg:certification>
+        </mfg:details>
+    </prod:product>
+    <prod:product id="p2">
+        <prod:name>Organic Cotton T-shirt</prod:name>
+        <prod:description>Ethically produced t-shirt made from organic cotton.</prod:description>
+        <prod:price currency="USD">29.99</prod:price>
+        <prod:sustainability-score>8.7</prod:sustainability-score>
+        <prod:claims>
+            <prod:claim id="c3">No pesticides used in production</prod:claim>
+            <prod:claim id="c4">Fair trade certified</prod:claim>
+        </prod:claims>
+        <mfg:details>
+            <mfg:manufacturer>GreenThreads Co.</mfg:manufacturer>
+            <mfg:country>India</mfg:country>
+            <mfg:certification>GOTS</mfg:certification>
+        </mfg:details>
+    </prod:product>
+</product-catalog>

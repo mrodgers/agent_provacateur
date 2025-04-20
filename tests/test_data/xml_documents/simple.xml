@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<research>
+    <metadata>
+        <title>Sample Research Paper</title>
+        <author>John Doe</author>
+        <date>2023-01-15</date>
+    </metadata>
+    <abstract>
+        This is a sample abstract that contains statements requiring verification.
+    </abstract>
+    <findings>
+        <finding id="f1">
+            <statement>The global temperature has risen by 1.1°C since pre-industrial times.</statement>
+            <confidence>high</confidence>
+        </finding>
+        <finding id="f2">
+            <statement>Renewable energy adoption increased by 45% in the last decade.</statement>
+            <confidence>medium</confidence>
+        </finding>
+    </findings>
+    <references>
+        <reference id="r1">IPCC Climate Report 2022</reference>
+        <reference id="r2">Energy Statistics Quarterly, Vol 12</reference>
+    </references>
+</research>
