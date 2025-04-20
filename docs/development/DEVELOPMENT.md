@@ -8,10 +8,14 @@ This document outlines the development workflow for the Agent Provocateur projec
 
 - Python 3.8+
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer and environment manager
+- Docker or Podman (optional, for monitoring)
+- Redis (optional, for production messaging)
 
-### Unified Development Script
+### Unified Development Scripts
 
-We provide a single unified script (`ap.sh`) that handles all development tasks:
+We provide unified scripts that handle all development tasks:
+
+#### Development Script (`ap.sh`)
 
 ```bash
 # Make the script executable (if needed)
@@ -31,7 +35,26 @@ The script supports the following commands:
 | `workflow` | Run a sample agent workflow | `./scripts/ap.sh workflow "query" --ticket=AP-1` |
 | `help` | Show help information | `./scripts/ap.sh help` |
 
-Common usage examples:
+#### Service Management Script (`start_ap.sh`)
+
+```bash
+# Make the script executable (if needed)
+chmod +x scripts/start_ap.sh
+
+# Get status of all services
+./scripts/start_ap.sh status
+```
+
+The service manager supports the following commands:
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `start` | Start services | `./scripts/start_ap.sh start` or `./scripts/start_ap.sh start mcp_server frontend` |
+| `stop` | Stop services | `./scripts/start_ap.sh stop` |
+| `restart` | Restart services | `./scripts/start_ap.sh restart` |
+| `status` | Check service status | `./scripts/start_ap.sh status` or `./scripts/start_ap.sh status --watch` |
+
+### Common Development Examples
 
 ```bash
 # Setup environment
@@ -43,8 +66,11 @@ Common usage examples:
 # Run specific tests
 ./scripts/ap.sh test tests/test_a2a_messaging.py
 
-# Start MCP server
-./scripts/ap.sh server
+# Start all services
+./scripts/start_ap.sh start
+
+# Check service status
+./scripts/start_ap.sh status
 
 # Run workflow
 ./scripts/ap.sh workflow "agent protocol research" --ticket=AP-1 --doc=doc1
@@ -93,7 +119,16 @@ ap-server --host 127.0.0.1 --port 8000
 │       └── sample_workflow.py    # Demo workflow
 ├── tests/                        # Test directory
 ├── scripts/                      # Helper scripts
-│   └── ap.sh                     # Unified development script
+│   ├── ap.sh                     # Development script
+│   ├── start_ap.sh               # Service management script
+│   ├── all_services.py           # Service management implementation
+│   ├── xml_cli.py                # XML document CLI
+│   └── xml_agent_cli.py          # XML agent CLI
+├── logs/                         # Service logs (generated)
+├── monitoring/                   # Monitoring configuration
+│   ├── docker-compose.yml        # Container definitions
+│   ├── prometheus.yml            # Prometheus configuration
+│   └── grafana/                  # Grafana dashboards
 ├── .venv/                        # Virtual environment (generated)
 └── pyproject.toml                # Project configuration
 ```
@@ -101,9 +136,43 @@ ap-server --host 127.0.0.1 --port 8000
 ## Development Workflow
 
 1. **Set up the environment**: Run `./scripts/ap.sh setup`
-2. **Make changes**: Edit code in the `src/agent_provocateur` directory
-3. **Run tests**: Use `./scripts/ap.sh test` to validate changes
-4. **Test manually**: Start the server and interact with it using the CLI or sample workflow
+2. **Start required services**: Run `./scripts/start_ap.sh start`
+3. **Make changes**: Edit code in the `src/agent_provocateur` directory
+4. **Run tests**: Use `./scripts/ap.sh test` to validate changes
+5. **Test manually**: Start the server and interact with it using the CLI or sample workflow
+6. **Monitor system status**: Use `./scripts/start_ap.sh status --watch` in a separate terminal
+
+## Service Management
+
+The service manager handles all components of the Agent Provocateur system:
+
+| Service | Description | Required Dependencies |
+|---------|-------------|----------------------|
+| monitoring | Prometheus, Pushgateway, and Grafana for metrics | Docker or Podman |
+| redis | Redis for agent-to-agent messaging | Redis server & client |
+| mcp_server | Main backend server | None |
+| frontend | Web UI server | None |
+
+### Logs
+
+Service logs are stored in the `logs/` directory:
+- `logs/mcp_server.out.log` - MCP server standard output
+- `logs/mcp_server.err.log` - MCP server error output
+- `logs/frontend.out.log` - Frontend server standard output
+- `logs/frontend.err.log` - Frontend server error output
+- `logs/monitoring.out.log` - Monitoring stack standard output
+- `logs/monitoring.err.log` - Monitoring stack error output
+
+### Service Ports
+
+| Service | Port | Description |
+|---------|------|-------------|
+| MCP Server | 8000 | Main backend API |
+| Frontend | 3001 | Web UI server |
+| Prometheus | 9090 | Metrics storage and querying |
+| Pushgateway | 9091 | Metrics ingestion |
+| Grafana | 3000 | Metrics visualization |
+| Redis | 6379 | Agent-to-agent communication |
 
 ## Dependency Management
 

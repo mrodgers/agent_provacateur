@@ -42,6 +42,30 @@ pip install -e ".[dev,frontend]"
 pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend]"
 ```
 
+## Service Management
+
+All Agent Provocateur services can be managed using the unified service script:
+
+```bash
+# Start all services (monitoring, redis, mcp_server, frontend)
+./scripts/start_ap.sh start
+
+# Start specific services
+./scripts/start_ap.sh start mcp_server frontend
+
+# Check status of all services
+./scripts/start_ap.sh status
+
+# Continuously monitor service status
+./scripts/start_ap.sh status --watch
+
+# Restart services
+./scripts/start_ap.sh restart
+
+# Stop all services
+./scripts/start_ap.sh stop
+```
+
 ### LLM Provider Setup
 
 Agent Provocateur supports multiple LLM providers that can be used interchangeably:
@@ -107,6 +131,8 @@ agent_provocateur/
 │   └── server.py               # Frontend server
 ├── scripts/                    # CLI and utility scripts
 │   ├── ap.sh                   # Main CLI script
+│   ├── start_ap.sh             # Unified service manager
+│   ├── all_services.py         # Service manager implementation
 │   ├── xml_cli.py              # XML document CLI
 │   └── xml_agent_cli.py        # XML agent CLI
 ├── src/                        # Source code
@@ -353,6 +379,10 @@ The project includes Prometheus metrics integration with Pushgateway and a pre-c
 # Install monitoring dependencies
 pip install -e ".[monitoring]"
 
+# Start all services including monitoring stack
+./scripts/start_ap.sh start monitoring
+
+# Or use the original method:
 # Start the MCP server with metrics enabled (default port 8001)
 ap-server --pushgateway localhost:9091
 
@@ -385,14 +415,18 @@ The Agent Provocateur web UI provides a user-friendly interface for working with
 # Install frontend dependencies
 pip install -e ".[frontend]"
 
+# Start all services using the service manager
+./scripts/start_ap.sh start
+
+# Or start individual components:
 # Start the backend MCP server in one terminal
 ap-server --host 127.0.0.1 --port 8000
 
 # Start the frontend server in another terminal
-python frontend/server.py --host 127.0.0.1 --port 3000
+python frontend/server.py --host 127.0.0.1 --port 3001
 
 # Access the web UI in your browser
-open http://localhost:3000
+open http://localhost:3001
 ```
 
 The web UI provides:

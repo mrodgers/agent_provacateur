@@ -23,6 +23,7 @@ dev = [
     "mypy>=1.0.0",
     "ruff>=0.0.0",
     "xmldiff>=2.6.0",  # For XML comparison in tests
+    "psutil>=5.9.0",   # For service monitoring
 ]
 redis = [
     "redis>=4.5.0",
@@ -45,6 +46,7 @@ xml = [
 ]
 frontend = [
     "jinja2>=3.0.0",  # For templating
+    "python-multipart>=0.0.5",  # For handling file uploads
 ]
 
 [tool.setuptools]
@@ -72,3 +74,4 @@ ap-server = "agent_provocateur.main:main"
 ap-client = "agent_provocateur.cli:main"
 ap-workflow = "agent_provocateur.sample_workflow:main"
 ap-llm = "agent_provocateur.llm_cli:main"
+ap-services = "scripts.all_services:main"

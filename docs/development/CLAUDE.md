@@ -4,12 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build/Lint/Test Commands
 
-### Using the unified script (recommended)
+### Using the unified scripts (recommended)
 - Setup environment: `./scripts/ap.sh setup`
 - Run tests: `./scripts/ap.sh test`
 - Start MCP server: `./scripts/ap.sh server`
 - Run workflow: `./scripts/ap.sh workflow "query" --ticket=AP-1`
 - Get help: `./scripts/ap.sh help`
+
+### Using the service manager
+- Start all services: `./scripts/start_ap.sh start`
+- Start specific services: `./scripts/start_ap.sh start mcp_server frontend`
+- Check service status: `./scripts/start_ap.sh status`
+- Watch service status: `./scripts/start_ap.sh status --watch`
+- Restart services: `./scripts/start_ap.sh restart`
+- Stop all services: `./scripts/start_ap.sh stop`
+- Or use the Python entry point: `ap-services status`
 
 ### Manual commands
 - Install dependencies: `uv pip install -e ".[dev]"` or `pip install -e ".[dev]"`
@@ -21,12 +30,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run tests: `pytest`
 - Run tests with coverage: `pytest --cov=agent_provocateur`
 
+## Server Responsibilities During Testing
+
+For testing and debugging, follow these guidelines regarding server responsibilities:
+
+1. **User Responsibilities**:
+   - Starting and managing the main backend servers (ap-server, Redis, etc.)
+   - Providing port information for running services
+   - Clarifying which servers are already running
+
+2. **Claude Responsibilities**:
+   - Running specific commands for testing/debugging
+   - Starting only components needed for testing (e.g., frontend server for UI testing)
+   - Avoiding starting servers already managed by the user
+   - Using provided port information to configure test commands
+
+Example workflow:
+```
+User: "I've started the backend server on port 8000. Please test the frontend server connection."
+Claude: [starts only the frontend server with appropriate backend URL]
+```
+
 ## Project Overview
 This project implements a multi-agent research system with:
 1. MCP Server Mock for simulated tool interactions
 2. MCP Client SDK for standardized tool access
 3. A2A Messaging Layer for agent coordination
 4. Sample agent implementations for collaborative workflows
+5. Web UI for document viewing and processing
 
 ## Code Style Guidelines
 - **Formatting**: 88 character line length (enforced by ruff)
@@ -42,6 +73,7 @@ This project implements a multi-agent research system with:
 ## Project Structure
 - Keep code organized in the `src/agent_provocateur` directory
 - Place tests in the `tests` directory
+- Frontend code is in the `frontend` directory
 - Follow Python package best practices
 - Use type annotations for all functions
 - Update documentation when making significant changes
@@ -57,3 +89,9 @@ This project implements a multi-agent research system with:
   - Pub/Sub Infrastructure: In-memory broker and Redis implementation
   - Agent Messaging Module: Base agent framework with task handling and retries
   - Sample Workflow: Demo with JIRA, Doc, Search, and Synthesis agents
+
+- Phase 3 (Web UI and CLI Enhancement) - Complete
+  - FastAPI frontend server
+  - Three-panel UI for document processing
+  - Document upload and processing
+  - XML research CLI integration
