@@ -9,7 +9,7 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **CLI Interface**: Command-line tools for interacting with the server
 - **Agent-to-Agent (A2A) Communication**: Structured messaging system for agent coordination and task delegation with reliable deduplication
 - **Agent Framework**: Base classes and utilities for building collaborative agent systems
-- **LLM Integration**: Support for multiple LLM providers including local Ollama models
+- **LLM Integration**: Support for multiple LLM providers including local Ollama models and Cisco's BridgeIT platform
 - **Document Types**: Support for multiple document types (text, PDF, image, code, structured data)
 - **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
 
@@ -28,9 +28,24 @@ pip install -e ".[dev,llm]"
 # With monitoring support (Prometheus)
 pip install -e ".[dev,monitoring]"
 
+# With BridgeIT support
+pip install -e ".[dev,bridgeit]"
+
 # With all features
-pip install -e ".[dev,llm,redis,monitoring]"
+pip install -e ".[dev,llm,bridgeit,redis,monitoring]"
 ```
+
+### LLM Provider Setup
+
+Agent Provocateur supports multiple LLM providers that can be used interchangeably:
+
+### Available Providers
+
+| Provider | Description | Installation | Documentation |
+|----------|-------------|--------------|---------------|
+| Mock | Built-in fallback provider for testing | Default | N/A |
+| Ollama | Local models with Ollama | `pip install -e ".[llm]"` | [OLLAMA_API.md](OLLAMA_API.md) |
+| BridgeIT | Cisco's Azure OpenAI gateway | `pip install -e ".[bridgeit]"` | [BRIDGEIT_API.md](BRIDGEIT_API.md) |
 
 ### Ollama Setup
 
@@ -40,6 +55,28 @@ To use Ollama as an LLM provider:
 2. Pull a model: `ollama pull llama3`
 3. Make sure Ollama is running: `ollama serve`
 4. Install the Python package: `pip install -e ".[llm]"`
+
+### BridgeIT Setup
+
+To use Cisco's BridgeIT platform as an LLM provider:
+
+1. Install the required dependencies: `pip install -e ".[bridgeit]"`
+2. Create a `.env` file in your project root with the following environment variables:
+
+```bash
+# Required variables
+AZURE_OPENAI_CLIENT_ID=your_client_id
+AZURE_OPENAI_CLIENT_SECRET=your_client_secret
+BRIDGEIT_APP_KEY=your_app_key
+
+# Optional variables with defaults
+BRIDGEIT_API_VERSION=2024-07-01-preview
+BRIDGEIT_TOKEN_URL=https://id.cisco.com/oauth2/default/v1/token
+BRIDGEIT_LLM_ENDPOINT=https://chat-ai.cisco.com
+BRIDGEIT_DEPLOYMENT_NAME=gpt-4o-mini
+```
+
+> **Note on bridgeit.py**: The original `bridgeit.py` file in the root directory is a reference implementation. Its core functionality has been integrated into the Agent Provocateur architecture in `src/agent_provocateur/llm_service.py`. You may keep or remove the original file, as it's not used by the core system.
 
 For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
@@ -176,25 +213,32 @@ ap-client list-documents --type code
 
 ### Using the LLM CLI
 
+The `ap-llm` command provides a convenient way to interact with any configured LLM provider:
+
 ```bash
-# List available LLM providers
+# List all available and configured LLM providers
 ap-llm --list-providers
 
-# Use the mock LLM
+# Basic usage with different providers
 ap-llm --provider mock --prompt "Why is the sky blue?"
-
-# Use Ollama with a specific model
 ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?"
+ap-llm --provider bridgeit --prompt "Why is the sky blue?"
 
-# Use chat messages format (better for chat models)
+# Using chat format with system and user messages
 ap-llm --provider ollama --model llama3 --messages "system:You are a helpful assistant,user:Why is the sky blue?"
+ap-llm --provider bridgeit --messages "system:You are a research assistant,user:Explain quantum computing"
 
-# Set generation parameters
+# Adjusting generation parameters
 ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --temperature 0.3 --max-tokens 500
+ap-llm --provider bridgeit --prompt "Why is the sky blue?" --temperature 0.7 --max-tokens 1000
 
-# Get JSON output
+# Output format control
 ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --json
 ```
+
+For more details on provider-specific options, see the documentation files:
+- [OLLAMA_API.md](OLLAMA_API.md) - For Ollama integration details
+- [BRIDGEIT_API.md](BRIDGEIT_API.md) - For BridgeIT integration details
 
 ### Working with Documents
 
