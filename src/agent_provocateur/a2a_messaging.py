@@ -11,6 +11,7 @@ from agent_provocateur.a2a_models import (
     TaskResult,
     TaskStatus,
 )
+from agent_provocateur.metrics import MESSAGE_COUNT, MESSAGE_LATENCY, push_metrics
 
 # Type variable for the message callback
 T = TypeVar("T", bound=Callable[[Message], Any])
@@ -148,6 +149,8 @@ class AgentMessaging:
         Args:
             message: The message to handle
         """
+        start_time = time.time()
+        
         # Print for debugging
         print(f"DEBUG: Handling message: {message.message_type}, id={message.message_id}")
         
@@ -160,11 +163,17 @@ class AgentMessaging:
         if message.deduplication_key:
             self.broker.mark_processed(message.deduplication_key)
         
+        # Extract source and target for metrics
+        source = "unknown"
+        target = "unknown"
+        
         # Handle by message type
         if message.message_type == MessageType.TASK_REQUEST:
             task_request = message.payload
             if isinstance(task_request, TaskRequest):
                 print(f"DEBUG: Processing task request: {task_request.task_id}, intent={task_request.intent}")
+                source = task_request.source_agent
+                target = task_request.target_agent
                 self._handle_task_request(task_request)
             else:
                 print(f"DEBUG: Invalid task request type: {type(task_request)}")
@@ -172,14 +181,34 @@ class AgentMessaging:
             task_result = message.payload
             if isinstance(task_result, TaskResult):
                 print(f"DEBUG: Storing task result: {task_result.task_id}, status={task_result.status}")
+                source = task_result.source_agent
+                target = task_result.target_agent
                 self.task_results[task_result.task_id] = task_result
             else:
                 print(f"DEBUG: Invalid task result type: {type(task_result)}")
+        elif message.message_type == MessageType.HEARTBEAT:
+            heartbeat = message.payload
+            if isinstance(heartbeat, Heartbeat):
+                source = heartbeat.agent_id
         
         # Notify registered callbacks
         if message.message_type.value in self.message_callbacks:
             for callback in self.message_callbacks[message.message_type.value]:
                 callback(message)
+                
+        # Record metrics
+        duration = time.time() - start_time
+        MESSAGE_COUNT.labels(
+            message_type=message.message_type.value,
+            source=source,
+            target=target
+        ).inc()
+        MESSAGE_LATENCY.labels(
+            message_type=message.message_type.value
+        ).observe(duration)
+        
+        # Push metrics to Pushgateway
+        push_metrics(job_name="a2a_messaging", grouping_key={"message_type": message.message_type.value, "source": source, "target": target})
     
     def _handle_task_request(self, task_request: TaskRequest) -> None:
         """Handle a task request.

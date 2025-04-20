@@ -1,3 +1,8 @@
+.env
+MULTICONTEXTPROTOCOL.md
+A2A_MCP.md
+bridgeit.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

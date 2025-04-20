@@ -1,7 +1,14 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Union
 
 from agent_provocateur.a2a_models import TaskRequest, TaskStatus
 from agent_provocateur.agent_base import BaseAgent
+from agent_provocateur.models import (
+    DocumentContent,
+    PdfDocument,
+    ImageDocument,
+    CodeDocument,
+    StructuredDataDocument,
+)
 
 
 class JiraAgent(BaseAgent):
@@ -46,6 +53,54 @@ class DocAgent(BaseAgent):
         doc = await self.async_mcp_client.get_doc(doc_id)
         
         return doc.dict()
+    
+    async def handle_get_document(self, task_request: Union[TaskRequest, Dict[str, Any]]) -> Dict[str, Any]:
+        """Handle fetching a document using the unified document API.
+        
+        Args:
+            task_request: The task request or direct dict
+            
+        Returns:
+            Dict[str, Any]: The document data
+        """
+        # Handle both TaskRequest and direct dict inputs
+        if hasattr(task_request, 'payload'):
+            payload = task_request.payload
+        else:
+            payload = task_request
+            
+        doc_id = payload.get("doc_id")
+        if not doc_id:
+            raise ValueError("Missing required parameter: doc_id")
+        
+        # Use async MCP client to fetch document
+        doc = await self.async_mcp_client.get_document(doc_id)
+        
+        return doc.dict()
+    
+    async def handle_list_documents(self, task_request: Union[TaskRequest, Dict[str, Any]]) -> Dict[str, Any]:
+        """Handle listing available documents.
+        
+        Args:
+            task_request: The task request or direct dict
+            
+        Returns:
+            Dict[str, Any]: The list of documents
+        """
+        # Handle both TaskRequest and direct dict inputs
+        if hasattr(task_request, 'payload'):
+            payload = task_request.payload
+        else:
+            payload = task_request
+            
+        doc_type = payload.get("doc_type")
+        
+        # Use async MCP client to list documents
+        documents = await self.async_mcp_client.list_documents(doc_type)
+        
+        return {
+            "documents": [doc.dict(exclude={"markdown", "html", "content", "data", "pages"}) for doc in documents]
+        }
 
 
 class PdfAgent(BaseAgent):
@@ -70,6 +125,160 @@ class PdfAgent(BaseAgent):
         return pdf.dict()
 
 
+class DocumentProcessingAgent(BaseAgent):
+    """Agent for processing different document types."""
+    
+    async def handle_summarize_document(self, task_request: Union[TaskRequest, Dict[str, Any]]) -> Dict[str, Any]:
+        """Summarize a document based on its type.
+        
+        Args:
+            task_request: The task request or direct dict
+            
+        Returns:
+            Dict[str, Any]: The summary data
+        """
+        # Handle both TaskRequest and direct dict inputs
+        if hasattr(task_request, 'payload'):
+            payload = task_request.payload
+        else:
+            payload = task_request
+            
+        doc_id = payload.get("doc_id")
+        if not doc_id:
+            raise ValueError("Missing required parameter: doc_id")
+        
+        # Fetch the document
+        doc = await self.async_mcp_client.get_document(doc_id)
+        
+        # Process based on document type
+        if isinstance(doc, DocumentContent):
+            return await self._summarize_text_document(doc)
+        elif isinstance(doc, PdfDocument):
+            return await self._summarize_pdf_document(doc)
+        elif isinstance(doc, ImageDocument):
+            return await self._summarize_image_document(doc)
+        elif isinstance(doc, CodeDocument):
+            return await self._summarize_code_document(doc)
+        elif isinstance(doc, StructuredDataDocument):
+            return await self._summarize_structured_data_document(doc)
+        else:
+            return {
+                "summary": f"Unknown document type: {doc.doc_type}",
+                "doc_id": doc.doc_id,
+                "title": doc.title,
+            }
+    
+    async def _summarize_text_document(self, doc: DocumentContent) -> Dict[str, Any]:
+        """Summarize a text document.
+        
+        Args:
+            doc: The document to summarize
+            
+        Returns:
+            Dict[str, Any]: The summary data
+        """
+        # In a real implementation, this might use an LLM to generate a summary
+        word_count = len(doc.markdown.split())
+        
+        return {
+            "summary": f"Text document with {word_count} words",
+            "doc_id": doc.doc_id,
+            "title": doc.title,
+            "doc_type": doc.doc_type,
+            "word_count": word_count,
+        }
+    
+    async def _summarize_pdf_document(self, doc: PdfDocument) -> Dict[str, Any]:
+        """Summarize a PDF document.
+        
+        Args:
+            doc: The document to summarize
+            
+        Returns:
+            Dict[str, Any]: The summary data
+        """
+        page_count = len(doc.pages)
+        total_words = sum(len(page.text.split()) for page in doc.pages)
+        
+        return {
+            "summary": f"PDF document with {page_count} pages and approximately {total_words} words",
+            "doc_id": doc.doc_id,
+            "title": doc.title,
+            "doc_type": doc.doc_type,
+            "page_count": page_count,
+            "word_count": total_words,
+        }
+    
+    async def _summarize_image_document(self, doc: ImageDocument) -> Dict[str, Any]:
+        """Summarize an image document.
+        
+        Args:
+            doc: The document to summarize
+            
+        Returns:
+            Dict[str, Any]: The summary data
+        """
+        dimensions = f"{doc.width}x{doc.height}" if doc.width and doc.height else "unknown dimensions"
+        
+        return {
+            "summary": f"Image document in {doc.format} format with {dimensions}",
+            "doc_id": doc.doc_id,
+            "title": doc.title,
+            "doc_type": doc.doc_type,
+            "format": doc.format,
+            "dimensions": dimensions,
+            "alt_text": doc.alt_text,
+        }
+    
+    async def _summarize_code_document(self, doc: CodeDocument) -> Dict[str, Any]:
+        """Summarize a code document.
+        
+        Args:
+            doc: The document to summarize
+            
+        Returns:
+            Dict[str, Any]: The summary data
+        """
+        return {
+            "summary": f"Code document in {doc.language} with {doc.line_count} lines",
+            "doc_id": doc.doc_id,
+            "title": doc.title,
+            "doc_type": doc.doc_type,
+            "language": doc.language,
+            "line_count": doc.line_count,
+        }
+    
+    async def _summarize_structured_data_document(self, doc: StructuredDataDocument) -> Dict[str, Any]:
+        """Summarize a structured data document.
+        
+        Args:
+            doc: The document to summarize
+            
+        Returns:
+            Dict[str, Any]: The summary data
+        """
+        # For JSON data, count keys at the top level
+        if doc.format.lower() == "json":
+            keys = list(doc.data.keys())
+            key_count = len(keys)
+            return {
+                "summary": f"Structured data in {doc.format} format with {key_count} top-level keys",
+                "doc_id": doc.doc_id,
+                "title": doc.title,
+                "doc_type": doc.doc_type,
+                "format": doc.format,
+                "top_level_keys": keys,
+            }
+        else:
+            return {
+                "summary": f"Structured data in {doc.format} format",
+                "doc_id": doc.doc_id,
+                "title": doc.title,
+                "doc_type": doc.doc_type,
+                "format": doc.format,
+            }
+
+
 class SearchAgent(BaseAgent):
     """Agent for performing web searches."""
     
@@ -90,7 +299,7 @@ class SearchAgent(BaseAgent):
         results = await self.async_mcp_client.search_web(query)
         
         return {
-            "results": [result.dict() for result in results]
+            "results": results
         }
 
 
@@ -128,10 +337,22 @@ class SynthesisAgent(BaseAgent):
             })
         
         if document_data:
-            sections.append({
-                "title": "Document Summary",
-                "content": f"Document {document_data['doc_id']} contains {len(document_data['markdown'])} characters."
-            })
+            # Check if it's a list or a single document
+            if isinstance(document_data, list):
+                for doc in document_data:
+                    document_title = doc.get('title', f"Document {doc.get('doc_id', 'unknown')}")
+                    document_type = doc.get('doc_type', 'unknown')
+                    sections.append({
+                        "title": f"{document_title} ({document_type.capitalize()})",
+                        "content": self._generate_document_summary(doc)
+                    })
+            else:
+                document_title = document_data.get('title', f"Document {document_data.get('doc_id', 'unknown')}")
+                document_type = document_data.get('doc_type', 'unknown')
+                sections.append({
+                    "title": f"{document_title} ({document_type.capitalize()})",
+                    "content": self._generate_document_summary(document_data)
+                })
         
         if search_results:
             content = "Found the following related resources:\n"
@@ -150,25 +371,69 @@ class SynthesisAgent(BaseAgent):
             "sections": sections,
             "summary": summary
         }
+    
+    def _generate_document_summary(self, doc: Dict[str, Any]) -> str:
+        """Generate a summary for a document based on its type.
+        
+        Args:
+            doc: The document data
+            
+        Returns:
+            str: A summary of the document
+        """
+        doc_type = doc.get('doc_type', 'unknown')
+        
+        if doc_type == 'text':
+            markdown = doc.get('markdown', '')
+            return f"Text document contains {len(markdown)} characters."
+        
+        elif doc_type == 'pdf':
+            pages = doc.get('pages', [])
+            return f"PDF document with {len(pages)} pages."
+        
+        elif doc_type == 'image':
+            dimensions = f"{doc.get('width', '?')}x{doc.get('height', '?')}"
+            return f"Image in {doc.get('format', 'unknown')} format ({dimensions}). Caption: {doc.get('caption', 'None')}"
+        
+        elif doc_type == 'code':
+            return f"Code in {doc.get('language', 'unknown')} with {doc.get('line_count', '?')} lines."
+        
+        elif doc_type == 'structured_data':
+            format = doc.get('format', 'unknown')
+            if isinstance(doc.get('data', {}), dict):
+                key_count = len(doc.get('data', {}).keys())
+                return f"Structured data in {format} format with {key_count} top-level elements."
+            else:
+                return f"Structured data in {format} format."
+        
+        else:
+            return f"Unknown document type: {doc_type}"
+    
 
 
 class DecisionAgent(BaseAgent):
     """Agent for making decisions using LLM assistance."""
     
-    async def handle_make_decision(self, task_request: TaskRequest) -> Dict[str, Any]:
+    async def handle_make_decision(self, task_request: Union[TaskRequest, Dict[str, Any]]) -> Dict[str, Any]:
         """Handle making a decision using LLM.
         
         Args:
-            task_request: The task request
+            task_request: The task request or direct dict
             
         Returns:
             Dict[str, Any]: The decision result
         """
+        # Handle both TaskRequest and direct dict inputs
+        if hasattr(task_request, 'payload'):
+            payload = task_request.payload
+        else:
+            payload = task_request
+        
         # Extract decision parameters
-        decision_type = task_request.payload.get("decision_type", "generic")
-        options = task_request.payload.get("options", [])
-        criteria = task_request.payload.get("criteria", [])
-        context_data = task_request.payload.get("context", {})
+        decision_type = payload.get("decision_type", "generic")
+        options = payload.get("options", [])
+        criteria = payload.get("criteria", [])
+        context_data = payload.get("context", {})
         
         # Build prompt based on decision type
         if decision_type == "prioritize":
@@ -177,6 +442,8 @@ class DecisionAgent(BaseAgent):
             prompt = self._build_selection_prompt(options, criteria)
         elif decision_type == "analyze":
             prompt = self._build_analysis_prompt(context_data)
+        elif decision_type == "document_analysis":
+            prompt = self._build_document_analysis_prompt(context_data)
         else:
             prompt = self._build_generic_decision_prompt(task_request.payload)
         
@@ -252,7 +519,7 @@ class DecisionAgent(BaseAgent):
             
             # Fallback to mock provider if original provider fails
             if provider != "mock":
-                self.logger.info(f"Falling back to mock LLM provider")
+                self.logger.info("Falling back to mock LLM provider")
                 llm_response = await self.async_mcp_client.generate_text(
                     prompt=prompt,
                     temperature=0.3,
@@ -337,6 +604,53 @@ class DecisionAgent(BaseAgent):
         prompt += "\nPlease provide a detailed analysis with key findings and recommendations."
         return prompt
     
+    def _build_document_analysis_prompt(self, context: Dict[str, Any]) -> str:
+        """Build a prompt for document analysis decisions."""
+        prompt = "Please analyze the following document information and provide insights:\n\n"
+        
+        document = context.get('document', {})
+        doc_type = document.get('doc_type', 'unknown')
+        
+        prompt += f"Document Title: {document.get('title', 'Untitled')}\n"
+        prompt += f"Document Type: {doc_type}\n"
+        
+        # Add type-specific information
+        if doc_type == 'text':
+            prompt += f"Content Length: {len(document.get('markdown', ''))}\n"
+            prompt += f"Content Sample: {document.get('markdown', '')[:200]}...\n"
+        
+        elif doc_type == 'pdf':
+            pages = document.get('pages', [])
+            prompt += f"Pages: {len(pages)}\n"
+            if pages:
+                prompt += f"First Page Sample: {pages[0].get('text', '')[:200]}...\n"
+        
+        elif doc_type == 'image':
+            prompt += f"Format: {document.get('format', 'unknown')}\n"
+            prompt += f"Dimensions: {document.get('width', '?')}x{document.get('height', '?')}\n"
+            prompt += f"Alt Text: {document.get('alt_text', 'None')}\n"
+            prompt += f"Caption: {document.get('caption', 'None')}\n"
+        
+        elif doc_type == 'code':
+            prompt += f"Language: {document.get('language', 'unknown')}\n"
+            prompt += f"Lines: {document.get('line_count', '?')}\n"
+            prompt += f"Code Sample: {document.get('content', '')[:200]}...\n"
+        
+        elif doc_type == 'structured_data':
+            prompt += f"Format: {document.get('format', 'unknown')}\n"
+            if isinstance(document.get('data', {}), dict):
+                keys = list(document.get('data', {}).keys())
+                prompt += f"Top-level keys: {', '.join(keys)}\n"
+        
+        # Add query for analysis
+        prompt += "\nBased on this document information, please provide:\n"
+        prompt += "1. A summary of the document's purpose and content\n"
+        prompt += "2. Key insights that can be extracted\n"
+        prompt += "3. Recommendations for further analysis\n"
+        prompt += "4. Potential connections to other documents or topics\n"
+        
+        return prompt
+    
     def _build_generic_decision_prompt(self, payload: Dict[str, Any]) -> str:
         """Build a generic decision prompt."""
         prompt = "Please evaluate the following information and provide a decision:\n\n"
@@ -353,18 +667,25 @@ class DecisionAgent(BaseAgent):
 class ManagerAgent(BaseAgent):
     """Agent for orchestrating research workflows."""
     
-    async def handle_research_query(self, task_request: TaskRequest) -> Dict[str, Any]:
+    async def handle_research_query(self, task_request: Union[TaskRequest, Dict[str, Any]]) -> Dict[str, Any]:
         """Handle a research query.
         
         Args:
-            task_request: The task request
+            task_request: The task request or dict with query parameters
             
         Returns:
             Dict[str, Any]: The research report
         """
-        query = task_request.payload.get("query")
-        ticket_id = task_request.payload.get("ticket_id")
-        doc_id = task_request.payload.get("doc_id")
+        # Handle both TaskRequest and direct dict inputs
+        if hasattr(task_request, 'payload'):
+            payload = task_request.payload
+        else:
+            payload = task_request
+            
+        query = payload.get("query")
+        ticket_id = payload.get("ticket_id")
+        doc_id = payload.get("doc_id")
+        doc_type = payload.get("doc_type")
         
         if not query:
             raise ValueError("Missing required parameter: query")
@@ -391,16 +712,42 @@ class ManagerAgent(BaseAgent):
             # Step 2: Fetch document if provided
             if doc_id:
                 self.logger.info(f"Fetching document: {doc_id}")
-                doc_result = await self.send_request_and_wait(
-                    target_agent="doc_agent",
-                    intent="get_doc",
-                    payload={"doc_id": doc_id},
-                    timeout_sec=5,  # Shorter timeout to avoid hanging
-                )
+                # Use appropriate agent based on document type
+                if doc_type == "pdf":
+                    doc_result = await self.send_request_and_wait(
+                        target_agent="pdf_agent",
+                        intent="get_pdf",
+                        payload={"pdf_id": doc_id},
+                        timeout_sec=5,
+                    )
+                else:
+                    # Use unified document interface
+                    doc_result = await self.send_request_and_wait(
+                        target_agent="doc_agent",
+                        intent="get_document",
+                        payload={"doc_id": doc_id},
+                        timeout_sec=5,
+                    )
                 
                 if doc_result and doc_result.status == TaskStatus.COMPLETED:
                     self.logger.info(f"Successfully fetched document: {doc_id}")
                     results["document_data"] = doc_result.output
+                    
+                    # Step 2.1: Process document if needed
+                    if doc_type:
+                        self.logger.info(f"Processing document: {doc_id}")
+                        processing_result = await self.send_request_and_wait(
+                            target_agent="document_processing_agent",
+                            intent="summarize_document",
+                            payload={"doc_id": doc_id},
+                            timeout_sec=5,
+                        )
+                        
+                        if processing_result and processing_result.status == TaskStatus.COMPLETED:
+                            self.logger.info(f"Successfully processed document: {doc_id}")
+                            results["document_summary"] = processing_result.output
+                        else:
+                            self.logger.warning(f"Failed to process document: {doc_id}")
                 else:
                     self.logger.warning(f"Failed to fetch document: {doc_id}")
             
@@ -430,6 +777,7 @@ class ManagerAgent(BaseAgent):
                         "query": query,
                         "ticket": results.get("ticket_data"),
                         "document": results.get("document_data"),
+                        "document_summary": results.get("document_summary"),
                         "search_results_count": len(results.get("search_results", [])),
                     }
                 },

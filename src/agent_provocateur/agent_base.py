@@ -11,7 +11,8 @@ from agent_provocateur.a2a_models import (
     TaskResult,
     TaskStatus,
 )
-from agent_provocateur.mcp_client import McpClient, SyncMcpClient
+from agent_provocateur.mcp_client import McpClient
+from agent_provocateur.metrics import AGENT_TASK_COUNT, AGENT_ACTIVE, AGENT_TASK_DURATION, record_agent_metrics, push_metrics
 
 
 class BaseAgent:
@@ -32,8 +33,9 @@ class BaseAgent:
         """
         self.agent_id = agent_id
         self.messaging = AgentMessaging(agent_id, broker)
-        self.mcp_client = SyncMcpClient(mcp_url)
+        # Just use the async client for everything
         self.async_mcp_client = McpClient(mcp_url)
+        self.mcp_client = self.async_mcp_client  # For backward compatibility
         self.logger = logging.getLogger(f"agent.{agent_id}")
         
         # Set up task handler
@@ -73,6 +75,18 @@ class BaseAgent:
         Args:
             task_request: The task request to process
         """
+        start_time = time.time()
+        
+        # Record task start metrics
+        AGENT_TASK_COUNT.labels(
+            agent_id=self.agent_id,
+            intent=task_request.intent,
+            status="in_progress"
+        ).inc()
+        
+        # Initialize last task status
+        self._last_task_status = "in_progress"
+        
         # Send in-progress status
         self.messaging.send_task_result(
             task_id=task_request.task_id,
@@ -98,6 +112,14 @@ class BaseAgent:
                     status=TaskStatus.COMPLETED,
                     output=result,
                 )
+                
+                # Record success metrics
+                AGENT_TASK_COUNT.labels(
+                    agent_id=self.agent_id,
+                    intent=task_request.intent,
+                    status="completed"
+                ).inc()
+                self._last_task_status = "completed"
             else:
                 # No handler found
                 self.logger.error(
@@ -111,6 +133,14 @@ class BaseAgent:
                     output={},
                     error=f"No handler found for intent: {task_request.intent}",
                 )
+                
+                # Record failure metrics
+                AGENT_TASK_COUNT.labels(
+                    agent_id=self.agent_id,
+                    intent=task_request.intent,
+                    status="failed"
+                ).inc()
+                self._last_task_status = "failed"
         except Exception as e:
             # Send error result
             self.logger.exception(f"Error processing task: {e}")
@@ -122,6 +152,31 @@ class BaseAgent:
                 output={},
                 error=str(e),
             )
+            
+            # Record exception metrics
+            AGENT_TASK_COUNT.labels(
+                agent_id=self.agent_id,
+                intent=task_request.intent,
+                status="error"
+            ).inc()
+            self._last_task_status = "error"
+        finally:
+            # Record task duration
+            duration = time.time() - start_time
+            AGENT_TASK_DURATION.labels(
+                agent_id=self.agent_id,
+                intent=task_request.intent
+            ).observe(duration)
+            # Get the final status for the grouping key
+            final_status = "completed"  # Default
+            if hasattr(self, "_last_task_status") and self._last_task_status:
+                final_status = self._last_task_status
+                
+            push_metrics(job_name="agent_task", grouping_key={
+                "agent_id": self.agent_id, 
+                "intent": task_request.intent,
+                "status": final_status
+            })
     
     async def _heartbeat_loop(self) -> None:
         """Send periodic heartbeats."""
@@ -146,9 +201,14 @@ class BaseAgent:
             Dict[str, Union[int, float]]: Agent metrics
         """
         # Default implementation - override in subclasses
-        return {
+        metrics = {
             "uptime_sec": time.time() - self.start_time,
         }
+        
+        # Record these metrics in Prometheus
+        record_agent_metrics(self.agent_id, metrics)
+        
+        return metrics
     
     async def start(self) -> None:
         """Start the agent."""
@@ -158,6 +218,10 @@ class BaseAgent:
         
         # Start heartbeat task
         self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        
+        # Record agent active in metrics
+        AGENT_ACTIVE.labels(agent_id=self.agent_id).inc()
+        push_metrics(job_name="agent_lifecycle", grouping_key={"agent_id": self.agent_id, "state": "active"})
         
         # Call startup method if defined in subclass
         if hasattr(self, "on_startup"):
@@ -172,8 +236,11 @@ class BaseAgent:
         if self.heartbeat_task:
             self.heartbeat_task.cancel()
         
-        # Close MCP client
-        await self.async_mcp_client.close()
+        # Record agent inactive in metrics
+        AGENT_ACTIVE.labels(agent_id=self.agent_id).dec()
+        push_metrics(job_name="agent_lifecycle", grouping_key={"agent_id": self.agent_id, "state": "inactive"})
+        
+        # MCP client doesn't need to be closed
         
         # Call shutdown method if defined in subclass
         if hasattr(self, "on_shutdown"):

@@ -31,11 +31,14 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(title="Agent Provocateur UI")
 
+# Get the directory of this file
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
 # Mount static files directory
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "static")), name="static")
 
 # Setup templates
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
 # Add CORS middleware
 from fastapi.middleware.cors import CORSMiddleware
