@@ -63,19 +63,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 resultElement.innerHTML = '<p>Loading XML documents...</p>';
 
                 try {
-                    // Get all XML documents
-                    const response = await fetch(`${window.BACKEND_URL}/documents?doc_type=xml`);
-                    if (!response.ok) {
-                        throw new Error(`Failed to fetch XML documents: ${response.status} ${response.statusText}`);
+                    // Log request for debugging
+                    console.log(`Fetching from: ${window.BACKEND_URL}/documents`);
+                    resultElement.innerHTML += `<p>Fetching from: ${window.BACKEND_URL}/documents</p>`;
+                    
+                    // First try just listing all documents
+                    const allDocsResponse = await fetch(`${window.BACKEND_URL}/documents`);
+                    if (!allDocsResponse.ok) {
+                        throw new Error(`Failed to fetch all documents: ${allDocsResponse.status} ${allDocsResponse.statusText}`);
                     }
                     
-                    const documents = await response.json();
-                    const xmlDocs = documents.filter(doc => doc.doc_type === 'xml');
+                    const allDocs = await allDocsResponse.json();
+                    console.log(`Received ${allDocs.length} documents of all types`);
+                    resultElement.innerHTML += `<p>Received ${allDocs.length} documents of all types</p>`;
+                    
+                    // Extract XML documents by filtering on client side
+                    const xmlDocs = allDocs.filter(doc => doc.doc_type === 'xml');
+                    console.log(`Found ${xmlDocs.length} XML documents`);
+                    resultElement.innerHTML += `<p>Found ${xmlDocs.length} XML documents by filtering</p>`;
                     
                     if (xmlDocs.length === 0) {
                         resultElement.innerHTML = `
                             <p>No XML documents found. Sample XML documents should be available in the default setup.</p>
+                            <p>Please check that your backend server contains the sample XML documents.</p>
                         `;
+                        
+                        // Show all document types to help with troubleshooting
+                        if (allDocs.length > 0) {
+                            resultElement.innerHTML += `
+                                <h4>All Available Document Types:</h4>
+                                <ul>
+                                    ${Array.from(new Set(allDocs.map(doc => doc.doc_type))).map(type => 
+                                        `<li>${type}: ${allDocs.filter(doc => doc.doc_type === type).length} documents</li>`
+                                    ).join('')}
+                                </ul>
+                            `;
+                        }
+                        
                         return;
                     }
                     
@@ -117,7 +141,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             resultElement.innerHTML += `<p>Loading content for ${docId}...</p>`;
                             
                             try {
+                                console.log(`Fetching XML content from: ${window.BACKEND_URL}/documents/${docId}/xml/content`);
+                                resultElement.innerHTML += `<p>Fetching XML content from: ${window.BACKEND_URL}/documents/${docId}/xml/content</p>`;
+                                
                                 const response = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml/content`);
+                                console.log(`XML content response status: ${response.status}`);
+                                resultElement.innerHTML += `<p>XML content response status: ${response.status}</p>`;
+                                
                                 if (!response.ok) {
                                     throw new Error(`Failed to fetch content: ${response.status}`);
                                 }
@@ -148,7 +178,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             resultElement.innerHTML += `<p>Loading nodes for ${docId}...</p>`;
                             
                             try {
+                                console.log(`Fetching XML nodes from: ${window.BACKEND_URL}/documents/${docId}/xml/nodes`);
+                                resultElement.innerHTML += `<p>Fetching XML nodes from: ${window.BACKEND_URL}/documents/${docId}/xml/nodes</p>`;
+                                
                                 const response = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml/nodes`);
+                                console.log(`XML nodes response status: ${response.status}`);
+                                resultElement.innerHTML += `<p>XML nodes response status: ${response.status}</p>`;
+                                
                                 if (!response.ok) {
                                     throw new Error(`Failed to fetch nodes: ${response.status}`);
                                 }
