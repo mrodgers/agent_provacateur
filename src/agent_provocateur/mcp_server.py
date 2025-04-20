@@ -613,4 +613,15 @@ def create_app() -> FastAPI:
         FastAPI: The configured FastAPI application
     """
     server = McpServer()
+    
+    # Add CORS middleware for frontend integration
+    from fastapi.middleware.cors import CORSMiddleware
+    server.app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # In production, replace with specific origins
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
     return server.app
