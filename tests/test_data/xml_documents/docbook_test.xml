@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.0">
+    <title>Artificial Intelligence Overview</title>
+    <para>This document provides an overview of artificial intelligence concepts.</para>
+    
+    <section>
+        <title>What is Artificial Intelligence?</title>
+        <para>
+            Artificial Intelligence (AI) refers to the simulation of human intelligence
+            in machines that are programmed to think and learn like humans.
+        </para>
+        <para>
+            The term AI was first coined in 1956 by <emphasis>John McCarthy</emphasis>,
+            who is often referred to as the father of AI.
+        </para>
+    </section>
+    
+    <section>
+        <title>Key AI Concepts</title>
+        <itemizedlist>
+            <listitem>
+                <para>Machine Learning</para>
+            </listitem>
+            <listitem>
+                <para>Neural Networks</para>
+            </listitem>
+            <listitem>
+                <para>Natural Language Processing</para>
+            </listitem>
+            <listitem>
+                <para>Computer Vision</para>
+            </listitem>
+        </itemizedlist>
+    </section>
+    
+    <section>
+        <title>Recent Advancements</title>
+        <para>
+            Recent years have seen significant advancements in AI technology, particularly
+            in the areas of deep learning and large language models.
+        </para>
+        <entity>GPT-4</entity>
+        <definition>
+            A large multimodal model that can process both text and images, and generate human-like responses.
+            <sources>
+                <source type="web" url="https://openai.com/research">OpenAI Research</source>
+            </sources>
+        </definition>
+    </section>
+</article>

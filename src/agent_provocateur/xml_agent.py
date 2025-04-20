@@ -4,13 +4,16 @@ from typing import Any, Dict, List, Optional
 import logging
 import asyncio
 import time
+import re
+from lxml import etree
 
 from agent_provocateur.a2a_models import TaskRequest, TaskStatus
 from agent_provocateur.agent_base import BaseAgent
 from agent_provocateur.models import XmlDocument, XmlNode
 from agent_provocateur.xml_parser import (
     identify_researchable_nodes_advanced,
-    analyze_xml_verification_needs
+    analyze_xml_verification_needs,
+    parse_xml
 )
 
 logger = logging.getLogger(__name__)
@@ -245,6 +248,225 @@ class XmlAgent(BaseAgent):
             "completed_nodes": completed,
             "verification_results": verification_results,
             "options": options
+        }
+        
+    async def handle_extract_entities(self, task_request: TaskRequest) -> Dict[str, Any]:
+        """
+        Extract research entities from XML content.
+        
+        Args:
+            task_request: Task request with document ID
+            
+        Returns:
+            Dict with extracted entities and confidence
+        """
+        doc_id = task_request.payload.get("doc_id")
+        if not doc_id:
+            raise ValueError("Missing required parameter: doc_id")
+            
+        # Get XML content
+        xml_content = await self.async_mcp_client.get_xml_content(doc_id)
+        
+        # Define entity detection rules
+        entity_keyword_rules = {
+            "entity": ["name", "term", "concept", "technology"],
+            "term": ["definition", "refers", "means"],
+            "concept": ["theory", "idea", "approach"],
+            "technology": ["system", "platform", "framework", "tool"]
+        }
+        
+        entity_attribute_rules = {
+            "type": ["entity", "concept", "term", "technology"],
+            "class": ["entity", "keyword", "important"]
+        }
+        
+        entity_content_patterns = [
+            "[A-Z][a-zA-Z\\s]{2,}",  # Capitalized phrases
+            "[A-Z][a-zA-Z]+\\s[A-Z][a-zA-Z]+",  # Multi-word capitalized terms
+            "[A-Z][A-Z]+",  # Acronyms
+        ]
+        
+        # Use advanced identification to find entity candidates
+        nodes = identify_researchable_nodes_advanced(
+            xml_content,
+            keyword_rules=entity_keyword_rules,
+            attribute_rules=entity_attribute_rules,
+            content_patterns=entity_content_patterns,
+            min_confidence=0.4  # Lower threshold for entities
+        )
+        
+        # Process nodes into entity objects
+        entities = []
+        for node in nodes:
+            # Extract context (surrounding text)
+            context = self._extract_context(xml_content, node.xpath)
+            
+            entity = {
+                "name": node.content,
+                "xpath": node.xpath,
+                "element": node.element_name,
+                "confidence": node.verification_data.get("confidence", 0.0),
+                "attributes": node.attributes,
+                "context": context,
+                "evidence": node.verification_data.get("evidence", [])
+            }
+            entities.append(entity)
+        
+        # Sort by confidence
+        entities.sort(key=lambda x: x["confidence"], reverse=True)
+            
+        return {
+            "doc_id": doc_id,
+            "entity_count": len(entities),
+            "entities": entities
+        }
+        
+    def _extract_context(self, xml_content: str, xpath: str) -> str:
+        """
+        Extract context around an XML node.
+        
+        Args:
+            xml_content: XML content
+            xpath: XPath to the node
+            
+        Returns:
+            Context text
+        """
+        try:
+            # Parse the XML
+            root, _ = parse_xml(xml_content)
+            
+            # Find the node
+            doc = etree.fromstring(xml_content.encode('utf-8'))
+            nodes = doc.xpath(xpath)
+            if not nodes:
+                return ""
+                
+            node = nodes[0]
+            
+            # Get parent node text
+            parent = node.getparent()
+            if parent is None:
+                return node.text or ""
+                
+            # Get all text from parent
+            parent_text = "".join(parent.xpath(".//text()"))
+            
+            # Truncate if too long
+            if len(parent_text) > 300:
+                # Find a good breaking point
+                break_point = parent_text.rfind(". ", 0, 300)
+                if break_point == -1:
+                    break_point = 300
+                parent_text = parent_text[:break_point+1]
+                
+            return parent_text.strip()
+        except Exception as e:
+            self.logger.error(f"Error extracting context: {e}")
+            return ""
+            
+    async def handle_validate_xml_output(self, task_request: TaskRequest) -> Dict[str, Any]:
+        """
+        Validate XML output against schema (e.g., DocBook DTD).
+        
+        Args:
+            task_request: Task request with XML content and schema URL
+            
+        Returns:
+            Dict with validation results
+        """
+        xml_content = task_request.payload.get("xml_content")
+        schema_url = task_request.payload.get("schema_url", "http://docbook.org/xml/5.0/xsd/docbook.xsd")
+        schema_type = task_request.payload.get("schema_type", "xsd")  # xsd or dtd
+        
+        if not xml_content:
+            raise ValueError("Missing required parameter: xml_content")
+        
+        validation_result = self._validate_xml_against_schema(xml_content, schema_url, schema_type)
+        
+        return {
+            "valid": validation_result["valid"],
+            "errors": validation_result["errors"],
+            "warnings": validation_result["warnings"],
+            "schema_url": schema_url,
+            "schema_type": schema_type
+        }
+    
+    def _validate_xml_against_schema(
+        self, 
+        xml_content: str, 
+        schema_url: str,
+        schema_type: str = "xsd"
+    ) -> Dict[str, Any]:
+        """
+        Validate XML against schema.
+        
+        Args:
+            xml_content: XML content to validate
+            schema_url: URL to the XML schema
+            schema_type: Type of schema (xsd or dtd)
+            
+        Returns:
+            Dict with validation results
+        """
+        errors = []
+        warnings = []
+        valid = False
+        
+        try:
+            # Parse XML content
+            parser = etree.XMLParser(dtd_validation=False, resolve_entities=False)
+            doc = etree.fromstring(xml_content.encode('utf-8'), parser)
+            
+            # For this mock implementation, we'll do basic well-formedness validation
+            # In a real implementation, we would download and parse the schema
+            
+            # Basic structure validation
+            if doc.tag is None:
+                errors.append("Invalid root element")
+            
+            # Check for basic DocBook elements if it's supposed to be DocBook
+            if "docbook" in schema_url.lower():
+                docbook_elements = ["book", "article", "chapter", "section", "para", "title"]
+                found_elements = set()
+                
+                for element in docbook_elements:
+                    if doc.xpath(f"//{element}"):
+                        found_elements.add(element)
+                
+                if not found_elements:
+                    warnings.append("No standard DocBook elements found")
+                elif len(found_elements) < 3:
+                    warnings.append(f"Only found {len(found_elements)} DocBook elements: {', '.join(found_elements)}")
+            
+            # Basic entity validation - check for undefined entities
+            entity_pattern = re.compile(r"&([^;]+);")
+            undefined_entities = []
+            
+            # Convert XML to string to check for entities
+            xml_str = etree.tostring(doc, encoding='utf-8').decode('utf-8')
+            for match in entity_pattern.finditer(xml_str):
+                entity = match.group(1)
+                if entity not in ["amp", "lt", "gt", "quot", "apos"]:
+                    undefined_entities.append(entity)
+            
+            if undefined_entities:
+                errors.append(f"Undefined entities: {', '.join(undefined_entities)}")
+            
+            # If no errors, it's valid
+            valid = len(errors) == 0
+            
+        except etree.XMLSyntaxError as e:
+            errors.append(f"XML syntax error: {str(e)}")
+            valid = False
+        except Exception as e:
+            errors.append(f"Validation error: {str(e)}")
+            valid = False
+        
+        return {
+            "valid": valid,
+            "errors": errors,
+            "warnings": warnings
         }
     
     def _create_verification_tasks(
