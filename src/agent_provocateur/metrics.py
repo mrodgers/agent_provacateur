@@ -121,8 +121,65 @@ def instrument_mcp_client(func: Callable[..., Awaitable[T]]) -> Callable[..., Aw
             raise e
         finally:
             duration = time.time() - start_time
+            # Increment request counter
+            MCP_REQUEST_COUNT.labels(endpoint=endpoint, status=status).inc()
+            # Observe request latency
+            MCP_REQUEST_LATENCY.labels(endpoint=endpoint).observe(duration)
+            # Push metrics to Pushgateway
+            push_metrics(job_name="mcp_client", grouping_key={"endpoint": endpoint, "status": status})
+    
+    return wrapper
+
+
+def instrument_llm_client(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+    """Decorator to instrument LLM client methods with Prometheus metrics.
+    
+    Args:
+        func: The function to instrument
+        
+    Returns:
+        The instrumented function
+    """
+    import time
+    import functools
+
+    @functools.wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Extract endpoint name from function name
+        endpoint = func.__name__
+        
+        # Extract provider and model from kwargs
+        provider = kwargs.get("provider", "unknown")
+        model = kwargs.get("model") or "default"
+        
+        start_time = time.time()
+        status = "success"
+        
+        try:
+            result = await func(*args, **kwargs)
+            return result
+        except Exception as e:
+            status = "error"
+            raise e
+        finally:
+            duration = time.time() - start_time
+            
+            # Standard MCP metrics
             MCP_REQUEST_COUNT.labels(endpoint=endpoint, status=status).inc()
             MCP_REQUEST_LATENCY.labels(endpoint=endpoint).observe(duration)
+            
+            # LLM-specific metrics
+            LLM_REQUEST_COUNT.labels(provider=provider, model=model, status=status).inc()
+            LLM_REQUEST_LATENCY.labels(provider=provider, model=model).observe(duration)
+            
+            # Push metrics
+            push_metrics(job_name="mcp_client", 
+                        grouping_key={
+                            "endpoint": endpoint, 
+                            "provider": provider, 
+                            "model": model,
+                            "status": status
+                        })
     
     return wrapper
 

@@ -1,23 +1,29 @@
-import asyncio
+import logging
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from agent_provocateur.models import (
+    Document,
     DocumentContent,
     JiraTicket,
-    LlmMessage,
     LlmRequest,
+    LlmMessage,
     LlmResponse,
-    LlmResponseUsage,
     PdfDocument,
-    SearchResult,
     SearchResults,
+    ImageDocument,
+    CodeDocument,
+    StructuredDataDocument,
+)
+from agent_provocateur.metrics import (
+    instrument_mcp_client,
+    instrument_llm_client
 )
 
 
 class McpClient:
-    """Client SDK for interacting with the MCP server."""
+    """Client for interacting with the MCP server."""
     
     def __init__(self, base_url: str = "http://localhost:8000") -> None:
         """Initialize the MCP client.
@@ -26,17 +32,14 @@ class McpClient:
             base_url: The base URL of the MCP server
         """
         self.base_url = base_url
-        self.client = httpx.AsyncClient(base_url=base_url, timeout=10.0)
+        self.logger = logging.getLogger(__name__)
     
-    async def close(self) -> None:
-        """Close the HTTP client."""
-        await self.client.aclose()
-    
+    @instrument_mcp_client
     async def fetch_ticket(self, ticket_id: str) -> JiraTicket:
-        """Fetch a JIRA ticket by ID.
+        """Fetch a JIRA ticket.
         
         Args:
-            ticket_id: The ID of the ticket to fetch
+            ticket_id: The ticket ID
             
         Returns:
             JiraTicket: The ticket data
@@ -44,15 +47,17 @@ class McpClient:
         Raises:
             httpx.HTTPStatusError: If the request fails
         """
-        response = await self.client.get(f"/jira/ticket/{ticket_id}")
-        response.raise_for_status()
-        return JiraTicket(**response.json())
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/jira/ticket/{ticket_id}")
+            response.raise_for_status()
+            return JiraTicket(**response.json())
     
+    @instrument_mcp_client
     async def get_doc(self, doc_id: str) -> DocumentContent:
-        """Fetch a document by ID.
+        """Get a document.
         
         Args:
-            doc_id: The ID of the document to fetch
+            doc_id: The document ID
             
         Returns:
             DocumentContent: The document content
@@ -60,15 +65,17 @@ class McpClient:
         Raises:
             httpx.HTTPStatusError: If the request fails
         """
-        response = await self.client.get(f"/docs/{doc_id}")
-        response.raise_for_status()
-        return DocumentContent(**response.json())
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/docs/{doc_id}")
+            response.raise_for_status()
+            return DocumentContent(**response.json())
     
+    @instrument_mcp_client
     async def get_pdf(self, pdf_id: str) -> PdfDocument:
-        """Fetch a PDF document by ID.
+        """Get a PDF document.
         
         Args:
-            pdf_id: The ID of the PDF to fetch
+            pdf_id: The PDF ID
             
         Returns:
             PdfDocument: The PDF document
@@ -76,27 +83,33 @@ class McpClient:
         Raises:
             httpx.HTTPStatusError: If the request fails
         """
-        response = await self.client.get(f"/pdf/{pdf_id}")
-        response.raise_for_status()
-        return PdfDocument(**response.json())
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/pdf/{pdf_id}")
+            response.raise_for_status()
+            return PdfDocument(**response.json())
     
-    async def search_web(self, query: str) -> List[SearchResult]:
-        """Search the web with the given query.
+    @instrument_mcp_client
+    async def search_web(self, query: str) -> List[Dict[str, str]]:
+        """Search the web.
         
         Args:
             query: The search query
             
         Returns:
-            List[SearchResult]: List of search results
+            List[Dict[str, str]]: The search results
             
         Raises:
             httpx.HTTPStatusError: If the request fails
         """
-        response = await self.client.get("/search", params={"query": query})
-        response.raise_for_status()
-        results = SearchResults(**response.json())
-        return results.results
-        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.base_url}/search", params={"query": query}
+            )
+            response.raise_for_status()
+            search_results = SearchResults(**response.json())
+            return [result.dict() for result in search_results.results]
+    
+    @instrument_llm_client
     async def generate_text(
         self,
         prompt: Optional[str] = None,
@@ -113,40 +126,32 @@ class McpClient:
         
         Args:
             prompt: The prompt to send to the LLM
-            messages: List of messages for chat-based LLMs
+            messages: Messages for chat-based LLMs
             temperature: Temperature for generation (0.0-1.0)
             max_tokens: Maximum number of tokens to generate
             system_prompt: Optional system prompt
             context: Optional context data
-            provider: LLM provider to use
-            model: Model name to use
+            provider: LLM provider to use (mock, ollama)
+            model: Model name to use (provider-specific)
             stream: Whether to stream the response
             
         Returns:
-            LlmResponse: The generated text response
+            LlmResponse: The generated text
             
         Raises:
             httpx.HTTPStatusError: If the request fails
-            
-        Note:
-            Either prompt or messages must be provided.
         """
-        # Prepare the request
-        llm_messages = None
+        # Convert messages to LlmMessage objects if provided
+        processed_messages = None
         if messages:
-            llm_messages = [
-                LlmMessage(role=msg["role"], content=msg["content"])
-                for msg in messages
+            processed_messages = [
+                LlmMessage(role=msg["role"], content=msg["content"]) for msg in messages
             ]
-            
-        # If system_prompt is provided separately and no messages include system role
-        if system_prompt and llm_messages and not any(m.role == "system" for m in llm_messages):
-            llm_messages.insert(0, LlmMessage(role="system", content=system_prompt))
-            system_prompt = None  # Avoid duplication
-            
+        
+        # Create request
         request = LlmRequest(
             prompt=prompt,
-            messages=llm_messages,
+            messages=processed_messages,
             temperature=temperature,
             max_tokens=max_tokens,
             system_prompt=system_prompt,
@@ -156,121 +161,122 @@ class McpClient:
             stream=stream,
         )
         
-        response = await self.client.post("/llm/generate", json=request.dict(exclude_none=True))
-        response.raise_for_status()
-        return LlmResponse(**response.json())
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/llm/generate", json=request.dict(exclude_none=True)
+            )
+            response.raise_for_status()
+            result = LlmResponse(**response.json())
+            return result
     
-    async def update_server_config(
-        self,
-        latency_min_ms: Optional[int] = None,
-        latency_max_ms: Optional[int] = None,
-        error_rate: Optional[float] = None,
-    ) -> Dict[str, Any]:
-        """Update the server configuration.
+    @instrument_mcp_client
+    async def list_documents(self, doc_type: Optional[str] = None) -> List[Document]:
+        """List all available documents, optionally filtered by type.
         
         Args:
-            latency_min_ms: Minimum latency in milliseconds
-            latency_max_ms: Maximum latency in milliseconds
-            error_rate: Rate of simulated errors (0.0 to 1.0)
+            doc_type: Optional document type filter
             
         Returns:
-            Dict: Updated server configuration
+            List[Document]: List of documents
             
         Raises:
             httpx.HTTPStatusError: If the request fails
         """
-        # Get current config
-        response = await self.client.get("/config")
-        response.raise_for_status()
-        config = response.json()
-        
-        # Update with provided values
-        if latency_min_ms is not None:
-            config["latency_min_ms"] = latency_min_ms
-        if latency_max_ms is not None:
-            config["latency_max_ms"] = latency_max_ms
-        if error_rate is not None:
-            config["error_rate"] = error_rate
-        
-        # Send updated config
-        response = await self.client.post("/config", json=config)
-        response.raise_for_status()
-        result: Dict[str, Any] = response.json()
-        return result
-
-
-# Synchronous interface for simpler usage
-class SyncMcpClient:
-    """Synchronous wrapper for the MCP client."""
+        params = {}
+        if doc_type:
+            params["doc_type"] = doc_type
+            
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/documents", params=params)
+            response.raise_for_status()
+            
+            # Parse response based on document types
+            documents = []
+            for doc_data in response.json():
+                documents.append(self._create_document_from_data(doc_data))
+                
+            return documents
     
-    def __init__(self, base_url: str = "http://localhost:8000") -> None:
-        """Initialize the synchronous MCP client.
+    @instrument_mcp_client
+    async def get_document(self, doc_id: str) -> Document:
+        """Get a document by ID.
         
         Args:
-            base_url: The base URL of the MCP server
+            doc_id: The document ID
+            
+        Returns:
+            Document: The document (specific subclass based on doc_type)
+            
+        Raises:
+            httpx.HTTPStatusError: If the request fails
         """
-        self.async_client = McpClient(base_url)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/documents/{doc_id}")
+            response.raise_for_status()
+            
+            return self._create_document_from_data(response.json())
     
-    def __enter__(self) -> "SyncMcpClient":
-        """Context manager entry."""
-        return self
-    
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Context manager exit with client cleanup."""
-        asyncio.run(self.async_client.close())
-    
-    def fetch_ticket(self, ticket_id: str) -> JiraTicket:
-        """Fetch a JIRA ticket synchronously."""
-        return asyncio.run(self.async_client.fetch_ticket(ticket_id))
-    
-    def get_doc(self, doc_id: str) -> DocumentContent:
-        """Fetch a document synchronously."""
-        return asyncio.run(self.async_client.get_doc(doc_id))
-    
-    def get_pdf(self, pdf_id: str) -> PdfDocument:
-        """Fetch a PDF document synchronously."""
-        return asyncio.run(self.async_client.get_pdf(pdf_id))
-    
-    def search_web(self, query: str) -> List[SearchResult]:
-        """Search the web synchronously."""
-        return asyncio.run(self.async_client.search_web(query))
+    def _create_document_from_data(self, data: Dict[str, Any]) -> Document:
+        """Create the appropriate document subclass based on doc_type.
         
-    def generate_text(
-        self,
-        prompt: Optional[str] = None,
-        messages: Optional[List[Dict[str, str]]] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 1000,
-        system_prompt: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        provider: str = "mock",
-        model: Optional[str] = None,
-        stream: bool = False,
-    ) -> LlmResponse:
-        """Generate text using the LLM synchronously."""
-        return asyncio.run(
-            self.async_client.generate_text(
-                prompt=prompt,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                system_prompt=system_prompt,
-                context=context,
-                provider=provider,
-                model=model,
-                stream=stream,
-            )
-        )
-    
-    def update_server_config(
-        self,
-        latency_min_ms: Optional[int] = None,
-        latency_max_ms: Optional[int] = None,
-        error_rate: Optional[float] = None,
-    ) -> Dict[str, Any]:
-        """Update the server configuration synchronously."""
-        return asyncio.run(
-            self.async_client.update_server_config(
-                latency_min_ms, latency_max_ms, error_rate
-            )
-        )
+        Args:
+            data: The document data
+            
+        Returns:
+            Document: The appropriate document subclass
+        """
+        # Extract basic document fields that are common to all types
+        doc_type = data.get("doc_type", "")
+        basic_fields = {
+            "doc_id": data.get("doc_id", ""),
+            "doc_type": doc_type,
+            "title": data.get("title", ""),
+            "created_at": data.get("created_at", ""),
+            "updated_at": data.get("updated_at"),
+            "metadata": data.get("metadata", {})
+        }
+        
+        try:
+            if doc_type == "text":
+                return DocumentContent(
+                    **basic_fields,
+                    markdown=data.get("markdown", ""),
+                    html=data.get("html")
+                )
+            elif doc_type == "pdf":
+                return PdfDocument(
+                    **basic_fields,
+                    url=data.get("url", ""),
+                    pages=data.get("pages", [])
+                )
+            elif doc_type == "image":
+                return ImageDocument(
+                    **basic_fields,
+                    url=data.get("url", ""),
+                    alt_text=data.get("alt_text", ""),
+                    caption=data.get("caption"),
+                    width=data.get("width"),
+                    height=data.get("height"),
+                    format=data.get("format", "unknown")
+                )
+            elif doc_type == "code":
+                return CodeDocument(
+                    **basic_fields,
+                    content=data.get("content", ""),
+                    language=data.get("language", ""),
+                    line_count=data.get("line_count", 0)
+                )
+            elif doc_type == "structured_data":
+                return StructuredDataDocument(
+                    **basic_fields,
+                    data=data.get("data", {}),
+                    schema=data.get("schema_def"),  # Using 'schema' instead of 'schema_def'
+                    format=data.get("format", "")
+                )
+            else:
+                # Default to base Document class if type is unknown
+                return Document(**basic_fields)
+        except Exception as e:
+            self.logger.error(f"Error creating document from data: {e}")
+            # Fall back to base Document
+            return Document(**basic_fields)
