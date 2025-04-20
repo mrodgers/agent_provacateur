@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<research-claims>
+    <metadata>
+        <title>Sample Claims Document</title>
+        <author>Test Author</author>
+        <date>2025-04-19</date>
+    </metadata>
+    <claim id="c1" confidence="high">
+        <statement>This statement is absolutely true in all cases.</statement>
+        <supporting-evidence>Multiple peer-reviewed studies</supporting-evidence>
+    </claim>
+    <claim id="c2" confidence="medium">
+        <statement>60% of the time, this statement works every time.</statement>
+        <supporting-evidence>Limited research with small sample size</supporting-evidence>
+    </claim>
+    <claim id="c3" confidence="low">
+        <statement>This is the best approach ever invented.</statement>
+        <supporting-evidence>Single study, not replicated</supporting-evidence>
+    </claim>
+    <reference id="r1">Smith, J. (2025). "Making Claims in Research." Journal of Research Methodologies, 55(3), 123-145.</reference>
+</research-claims>

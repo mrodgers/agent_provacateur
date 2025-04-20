@@ -7,6 +7,28 @@ This tool allows interactive testing of the XML Agent for advanced
 node identification and verification planning.
 """
 
+from pathlib import Path
+
+def _resolve_file_path(file_path):
+    """
+    Resolve file path for XML files.
+    
+    Args:
+        file_path: The input path (absolute or relative)
+        
+    Returns:
+        Path object with the resolved path
+    """
+    if file_path.startswith('/'):
+        return Path(file_path)
+    else:
+        # First try in current directory
+        result_path = Path(file_path)
+        if not result_path.exists():
+            # Then try in examples directory
+            result_path = Path("examples") / file_path
+        return result_path
+
 import argparse
 import asyncio
 import json
@@ -31,11 +53,8 @@ async def advanced_identify(args):
         # Load XML file
         if args.file:
             file_path = args.file
-            # If it's a relative path in examples, adjust it
-            if not file_path.startswith('/'):
-                file_path = f"examples/{file_path}"
-                
-            xml_file_path = Path(file_path)
+            # Use the helper method to resolve the path
+            xml_file_path = _resolve_file_path(file_path)
             if not xml_file_path.exists():
                 print(f"Error: File {xml_file_path} does not exist")
                 sys.exit(1)
@@ -58,11 +77,14 @@ async def advanced_identify(args):
         if args.rules_file:
             try:
                 rules_path = args.rules_file
-                # If it's a relative path in examples, adjust it
-                if not rules_path.startswith('/'):
-                    rules_path = f"examples/{rules_path}"
+                # Use the helper method to resolve the path
+                rules_file_path = _resolve_file_path(rules_path)
                 
-                with open(rules_path, 'r') as f:
+                if not rules_file_path.exists():
+                    print(f"Error: Rules file {rules_file_path} does not exist")
+                    sys.exit(1)
+                
+                with open(rules_file_path, 'r') as f:
                     rules = json.load(f)
                 
                 keyword_rules = rules.get("keyword_rules")

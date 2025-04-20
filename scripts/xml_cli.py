@@ -6,6 +6,28 @@ Command-line tool for working with XML documents in Agent Provocateur.
 This is a simple script to test the XML functionality interactively.
 """
 
+from pathlib import Path
+
+def _resolve_file_path(file_path):
+    """
+    Resolve file path for XML files.
+    
+    Args:
+        file_path: The input path (absolute or relative)
+        
+    Returns:
+        Path object with the resolved path
+    """
+    if file_path.startswith('/'):
+        return Path(file_path)
+    else:
+        # First try in current directory
+        result_path = Path(file_path)
+        if not result_path.exists():
+            # Then try in examples directory
+            result_path = Path("examples") / file_path
+        return result_path
+
 import argparse
 import asyncio
 import json
@@ -73,11 +95,8 @@ async def upload_xml(args):
     try:
         # Load XML from file
         file_path = args.file
-        # If it's a relative path in examples, adjust it
-        if not file_path.startswith('/'):
-            file_path = f"examples/{file_path}"
-            
-        xml_file_path = Path(file_path)
+        # Use the helper method to resolve the path
+        xml_file_path = _resolve_file_path(file_path)
         if not xml_file_path.exists():
             print(f"Error: File {xml_file_path} does not exist")
             sys.exit(1)
