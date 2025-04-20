@@ -5,10 +5,24 @@ import json
 import sys
 import platform
 import time
+import os
 from typing import Any, Dict, List
+from pathlib import Path
 
 from agent_provocateur.mcp_client import McpClient
 import asyncio
+
+from agent_provocateur.a2a_messaging import InMemoryMessageBroker
+from agent_provocateur.a2a_models import TaskRequest, TaskStatus, TaskResult
+from agent_provocateur.agent_implementations import (
+    DocAgent, 
+    SearchAgent, 
+    JiraAgent, 
+    SynthesisAgent, 
+    DecisionAgent
+)
+from agent_provocateur.xml_agent import XmlAgent
+from agent_provocateur.research_supervisor_agent import ResearchSupervisorAgent
 
 # Import optional Prometheus metrics if available
 try:
@@ -97,6 +111,66 @@ Search Results ({len(results)} found):
 
 {formatted_results}
 """
+
+
+def format_research_results(research_result: Dict[str, Any]) -> str:
+    """Format research results for display.
+    
+    Args:
+        research_result: The research results
+        
+    Returns:
+        str: Formatted research results string
+    """
+    doc_id = research_result.get("doc_id", "unknown")
+    entity_count = research_result.get("entity_count", 0)
+    research_count = research_result.get("research_count", 0)
+    summary = research_result.get("summary", "No summary available")
+    workflow_id = research_result.get("workflow_id", "unknown")
+    
+    # Format entities
+    entity_details = ""
+    if "research_results" in research_result:
+        for i, entity in enumerate(research_result["research_results"][:5], 1):  # Show top 5
+            entity_name = entity.get("entity", "Unknown")
+            definition = entity.get("definition", "No definition available")
+            confidence = entity.get("confidence", 0.0)
+            
+            # Truncate definition if too long
+            if len(definition) > 150:
+                definition = definition[:147] + "..."
+                
+            entity_details += f"  {i}. {entity_name} (Confidence: {confidence:.2f})\n"
+            entity_details += f"     {definition}\n\n"
+    
+    result = f"""
+Research Results for Document: {doc_id}
+Workflow ID: {workflow_id}
+
+Summary: {summary}
+
+Entities Found: {entity_count}
+Entities Researched: {research_count}
+
+Top Entities:
+{entity_details}
+"""
+    
+    # Add XML output info
+    if "enriched_xml" in research_result:
+        validation = research_result.get("validation", {})
+        valid = validation.get("valid", False)
+        errors = validation.get("errors", [])
+        
+        result += f"\nEnriched XML Output:\n"
+        result += f"  Validation: {'VALID' if valid else 'INVALID'}\n"
+        
+        if errors:
+            result += f"  Errors: {len(errors)}\n"
+            for error in errors[:3]:  # Show top 3 errors
+                result += f"    - {error}\n"
+    
+    return result
 
 
 def run_metrics_test(args: argparse.Namespace) -> None:
@@ -219,6 +293,92 @@ async def run_command(args: argparse.Namespace) -> None:
             print(f"\nFound {len(documents)} documents:")
             for doc in documents:
                 print(f"  - {doc.doc_id} ({doc.doc_type}): {doc.title}")
+                
+    elif args.command == "research":
+        # Handle research command with all agent setup
+        try:
+            # Create broker and agents
+            broker = InMemoryMessageBroker()
+            
+            print(f"Setting up agents for research...")
+            # Create all required agents
+            supervisor = ResearchSupervisorAgent("research_supervisor", broker, args.server)
+            xml_agent = XmlAgent("xml_agent", broker, args.server)
+            doc_agent = DocAgent("doc_agent", broker, args.server)
+            decision_agent = DecisionAgent("decision_agent", broker, args.server)
+            synthesis_agent = SynthesisAgent("synthesis_agent", broker, args.server)
+            
+            # Create secondary agents if needed
+            agents = [supervisor, xml_agent, doc_agent, decision_agent, synthesis_agent]
+            
+            if args.with_search:
+                search_agent = SearchAgent("search_agent", broker, args.server)
+                agents.append(search_agent)
+                
+            if args.with_jira:
+                jira_agent = JiraAgent("jira_agent", broker, args.server)
+                agents.append(jira_agent)
+            
+            # Start all agents
+            for agent in agents:
+                await agent.start()
+            
+            try:
+                # Research options
+                options = {
+                    "format": args.format,
+                    "max_entities": args.max_entities,
+                    "min_confidence": args.min_confidence
+                }
+                
+                # Execute research
+                print(f"Starting research for document: {args.doc_id}")
+                start_time = time.time()
+                
+                # Create task request
+                task_request = TaskRequest(
+                    task_id=f"cli_research_{int(time.time())}",
+                    source_agent="cli",
+                    target_agent="research_supervisor",
+                    intent="research_document",
+                    payload={
+                        "doc_id": args.doc_id,
+                        "options": options
+                    }
+                )
+                
+                research_result = await supervisor.handle_research_document(task_request)
+                
+                end_time = time.time()
+                duration = end_time - start_time
+                
+                print(f"Research completed in {duration:.2f} seconds")
+                
+                # Process results
+                if args.format == "xml" and "enriched_xml" in research_result:
+                    # Save enriched XML to file
+                    output_file = args.output or f"{args.doc_id}_enriched.xml"
+                    with open(output_file, "w") as f:
+                        f.write(research_result.get("enriched_xml", ""))
+                    print(f"Enriched XML saved to: {output_file}")
+                
+                # Display formatted results or JSON
+                if args.json:
+                    result = research_result
+                else:
+                    print(format_research_results(research_result))
+                    
+            finally:
+                # Stop all agents
+                print("Shutting down agents...")
+                for agent in agents:
+                    await agent.stop()
+                    
+        except Exception as e:
+            print(f"Error in research workflow: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
     
     # Print JSON if requested
     if args.json and result is not None:
@@ -258,6 +418,16 @@ def main() -> int:
     # List documents
     list_docs_parser = subparsers.add_parser("list-documents", help="List available documents")
     list_docs_parser.add_argument("--type", help="Filter by document type")
+    
+    # Research documents
+    research_parser = subparsers.add_parser("research", help="Research entities in a document")
+    research_parser.add_argument("doc_id", help="Document ID to research")
+    research_parser.add_argument("--format", choices=["text", "xml"], default="text", help="Output format")
+    research_parser.add_argument("--output", help="Output file for XML results")
+    research_parser.add_argument("--max-entities", type=int, default=10, help="Maximum entities to research")
+    research_parser.add_argument("--min-confidence", type=float, default=0.5, help="Minimum confidence threshold")
+    research_parser.add_argument("--with-search", action="store_true", help="Include search agent for research")
+    research_parser.add_argument("--with-jira", action="store_true", help="Include JIRA agent for research")
     
     # Configure server
     config_parser = subparsers.add_parser(

@@ -285,7 +285,10 @@ class ResearchSupervisorAgent(BaseAgent):
         entity_result = await self.send_request_and_wait(
             target_agent="xml_agent",
             intent="extract_entities",
-            payload={"doc_id": doc_id}
+            payload={
+                "doc_id": doc_id,
+                "options": options
+            }
         )
         if entity_result:
             entity_result = entity_result.output
@@ -316,7 +319,8 @@ class ResearchSupervisorAgent(BaseAgent):
             intent="generate_research_xml",
             payload={
                 "original_doc_id": doc_id,
-                "research_results": research_result.get("research_results", [])
+                "research_results": research_result.get("research_results", []),
+                "format": options.get("format", "xml")
             }
         ))
         self.workflows[workflow_id]["steps_completed"].append("generate_research_xml")
