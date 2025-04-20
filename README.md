@@ -48,8 +48,8 @@ Agent Provocateur supports multiple LLM providers that can be used interchangeab
 | Provider | Description | Installation | Documentation |
 |----------|-------------|--------------|---------------|
 | Mock | Built-in fallback provider for testing | Default | N/A |
-| Ollama | Local models with Ollama | `pip install -e ".[llm]"` | [OLLAMA_API.md](OLLAMA_API.md) |
-| BridgeIT | Cisco's Azure OpenAI gateway | `pip install -e ".[bridgeit]"` | [BRIDGEIT_API.md](BRIDGEIT_API.md) |
+| Ollama | Local models with Ollama | `pip install -e ".[llm]"` | [Ollama API](docs/api/OLLAMA_API.md) |
+| BridgeIT | Cisco's Azure OpenAI gateway | `pip install -e ".[bridgeit]"` | [BridgeIT API](docs/api/BRIDGEIT_API.md) |
 
 ### Ollama Setup
 
@@ -82,49 +82,32 @@ BRIDGEIT_DEPLOYMENT_NAME=gpt-4o-mini
 
 > **Note on bridgeit.py**: The original `bridgeit.py` file in the root directory is a reference implementation. Its core functionality has been integrated into the Agent Provocateur architecture in `src/agent_provocateur/llm_service.py`. You may keep or remove the original file, as it's not used by the core system.
 
-For detailed development instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
+For detailed development instructions, see [Development Guide](docs/development/DEVELOPMENT.md).
 
 ## Project Structure
 
 ```
-.
-├── src/
-│   └── agent_provocateur/        # Main package
-│       ├── __init__.py
-│       ├── main.py               # Server entry point
-│       ├── models.py             # Data models
-│       ├── mcp_server.py         # Mock MCP server implementation
-│       ├── mcp_client.py         # Client SDK
-│       ├── cli.py                # CLI interface
-│       ├── a2a_models.py         # A2A message schemas
-│       ├── a2a_messaging.py      # Agent messaging module
-│       ├── a2a_redis.py          # Redis-based messaging
-│       ├── agent_base.py         # Base agent framework
-│       ├── agent_implementations.py # Sample agent implementations
-│       ├── xml_parser.py         # XML parsing utilities
-│       ├── xml_agent.py          # XML analysis agent
-│       ├── sample_workflow.py    # Demo workflow
-│       └── sample_document_workflow.py # Document workflow demo
-├── tests/
-│   ├── __init__.py
-│   ├── test_main.py              # Tests for MCP server
-│   ├── test_a2a_messaging.py     # Tests for A2A messaging
-│   ├── test_agent_base.py        # Tests for agent framework
-│   ├── test_document_loader.py   # Tests for document loading
-│   ├── test_document_processing.py # Tests for document processing
-│   ├── test_xml_agent.py         # Tests for XML agent
-│   └── test_data/                # Test data directory
-│       └── documents/            # Test document files
-├── xml_cli.py                    # XML document CLI
-├── xml_agent_cli.py              # XML agent CLI
-├── sample_rules.json             # Sample XML verification rules
-├── CLAUDE.md                     # Guide for Claude AI
-├── LICENSE                       # MIT License
-├── README.md                     # This file
-├── phase1_implementation.md      # Phase 1 documentation
-├── phase2_implementation.md      # Phase 2 documentation
-├── pyproject.toml                # Project configuration
-└── setup.py                      # Installation script
+agent_provocateur/
+├── docs/                       # Documentation
+│   ├── architecture/           # Architecture docs
+│   ├── api/                    # API docs
+│   ├── development/            # Development guides
+│   ├── guides/                 # User guides
+│   ├── implementation/         # Implementation details
+│   └── README.md               # Documentation index
+├── examples/                   # Example files
+│   ├── sample.xml              # Sample XML document
+│   └── sample_rules.json       # Sample verification rules
+├── scripts/                    # CLI and utility scripts
+│   ├── ap.sh                   # Main CLI script
+│   ├── xml_cli.py              # XML document CLI
+│   └── xml_agent_cli.py        # XML agent CLI
+├── src/                        # Source code
+│   └── agent_provocateur/      # Package directory
+├── tests/                      # Test directory
+│   └── test_data/              # Test data
+├── monitoring/                 # Monitoring configuration
+└── README.md                   # This file
 ```
 
 ## Document Types
@@ -161,6 +144,8 @@ Agent Provocateur supports multiple document types:
 - Researchable node identification
 - Verification planning and execution
 - Confidence scoring for claims and statements
+
+For more details on document types, see the [Document Types Guide](docs/guides/document_types.md).
 
 ## Development
 
@@ -220,7 +205,7 @@ ap-client ticket AP-1 --json
 # Connect to a different server
 ap-client --server http://localhost:8008 ticket AP-1
 
-# List all available documents
+# List all documents
 ap-client list-documents
 
 # List documents of a specific type
@@ -235,64 +220,24 @@ The XML Agent provides advanced capabilities for working with XML documents, ide
 
 ```bash
 # Using the XML CLI tool
-python xml_cli.py list               # List all XML documents
-python xml_cli.py get xml1           # Get XML document details
-python xml_cli.py get xml1 --content # Show XML content
-python xml_cli.py get xml1 --nodes   # Show researchable nodes
-python xml_cli.py upload sample.xml --title "Product Catalog"  # Upload new XML document
+python scripts/xml_cli.py list               # List all XML documents
+python scripts/xml_cli.py get xml1           # Get XML document details
+python scripts/xml_cli.py get xml1 --content # Show XML content
+python scripts/xml_cli.py get xml1 --nodes   # Show researchable nodes
+python scripts/xml_cli.py upload examples/sample.xml --title "Product Catalog"  # Upload new XML document
 ```
 
 #### XML Agent Capabilities
 
 ```bash
 # Using the XML Agent CLI tool
-python xml_agent_cli.py identify --file sample.xml --confidence 0.4 --evidence  # Identify researchable nodes
-python xml_agent_cli.py identify --doc_id xml1 --rules-file sample_rules.json   # Use custom rules
-python xml_agent_cli.py plan xml1                            # Create verification plan
-python xml_agent_cli.py verify xml1 --search-depth high      # Test batch verification
+python scripts/xml_agent_cli.py identify --file sample.xml --confidence 0.4 --evidence  # Identify researchable nodes
+python scripts/xml_agent_cli.py identify --doc_id xml1 --rules-file sample_rules.json   # Use custom rules
+python scripts/xml_agent_cli.py plan xml1                            # Create verification plan
+python scripts/xml_agent_cli.py verify xml1 --search-depth high      # Test batch verification
 ```
 
-#### XML Agent API
-
-```python
-import asyncio
-from agent_provocateur.xml_agent import XmlAgent
-from agent_provocateur.a2a_models import TaskRequest
-
-async def main():
-    # Initialize agent
-    agent = XmlAgent(agent_id="xml_agent")
-    
-    # Create verification plan
-    task_request = TaskRequest(
-        task_id="test_task",
-        source_agent="test_agent",
-        intent="create_verification_plan",
-        payload={"doc_id": "xml1"}
-    )
-    
-    # Run the task
-    plan = await agent.handle_create_verification_plan(task_request)
-    print(f"Created verification plan with {len(plan['tasks'])} tasks")
-    
-    # Identify nodes with advanced rules
-    identify_request = TaskRequest(
-        task_id="identify_task",
-        source_agent="test_agent",
-        intent="identify_nodes",
-        payload={
-            "doc_id": "xml1",
-            "min_confidence": 0.6,
-            "content_patterns": [r"\d+%", r"(increased|decreased) by \d+"]
-        }
-    )
-    
-    # Run node identification
-    nodes_result = await agent.handle_identify_nodes(identify_request)
-    print(f"Identified {nodes_result['node_count']} nodes above confidence threshold")
-
-asyncio.run(main())
-```
+For more details on XML verification, see the [XML Verification Guide](docs/guides/xml_verification.md).
 
 ### Using the LLM CLI
 
@@ -320,8 +265,8 @@ ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --json
 ```
 
 For more details on provider-specific options, see the documentation files:
-- [OLLAMA_API.md](OLLAMA_API.md) - For Ollama integration details
-- [BRIDGEIT_API.md](BRIDGEIT_API.md) - For BridgeIT integration details
+- [Ollama API](docs/api/OLLAMA_API.md) - For Ollama integration details
+- [BridgeIT API](docs/api/BRIDGEIT_API.md) - For BridgeIT integration details
 
 ### Working with Documents
 
@@ -403,7 +348,29 @@ Available metrics include:
 - LLM request statistics
 - System information
 
-For more details, see [monitoring/README.md](monitoring/README.md).
+For more details, see [Monitoring README](monitoring/README.md).
+
+## Architecture and Design
+
+The Agent Provocateur system is built on these key architectural concepts:
+
+1. **Model-Context-Protocol (MCP)** - A standardized way for agents to interact with tools, data, and context
+2. **Agent-to-Agent (A2A) Messaging** - Communication system for collaborative agent workflows
+3. **Document Type System** - Unified representation of different document formats
+4. **Verification Framework** - System for verifying information in documents
+
+For more details on the architecture, see:
+- [A2A and MCP Integration](docs/architecture/A2A_MCP.md)
+- [Multi-Context Protocol](docs/architecture/MULTICONTEXTPROTOCOL.md)
+- [Project Design Specification](docs/architecture/project_design_spec.md)
+
+## Documentation
+
+See the [Documentation Index](docs/README.md) for the full documentation, including:
+- [Development Guides](docs/development/)
+- [API Documentation](docs/api/)
+- [User Guides](docs/guides/)
+- [Implementation Details](docs/implementation/)
 
 ## License
 
