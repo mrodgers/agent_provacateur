@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Provocateur - Fallback Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f3f4f6;
+            padding: 0;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        header {
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            margin: 0;
+            color: #1f2937;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            text-decoration: none;
+            margin-right: 0.5rem;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Agent Provocateur</h1>
+    </header>
+    
+    <div class="container">
+        <div class="card">
+            <h2>System Status</h2>
+            <p>The Agent Provocateur system is online and ready to use.</p>
+            <p>Backend URL: {{ backend_url }}</p>
+            <p>
+                <a href="/api/health" class="btn">Check API Health</a>
+            </p>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>Document Management</h2>
+                <p>View and manage XML and other documents.</p>
+                <ul>
+                    <li>Upload XML documents</li>
+                    <li>Browse document library</li>
+                    <li>View document contents</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h2>XML Research</h2>
+                <p>Extract entities and perform research on XML documents.</p>
+                <ul>
+                    <li>Entity extraction</li>
+                    <li>Automated research</li>
+                    <li>Enriched XML generation</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h2>Agent Management</h2>
+                <p>Monitor and control the agent system.</p>
+                <ul>
+                    <li>View agent status</li>
+                    <li>Start/stop agents</li>
+                    <li>Monitor agent tasks</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Usage Instructions</h2>
+            <p>To use the Agent Provocateur system:</p>
+            <ol>
+                <li>Start the backend API server: <code>ap-server --host 127.0.0.1 --port 8000</code></li>
+                <li>Start the frontend server: <code>python frontend/server.py --host 127.0.0.1 --port 3000</code></li>
+                <li>Access the web UI in your browser: <code>http://localhost:3000</code></li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

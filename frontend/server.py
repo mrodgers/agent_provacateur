@@ -55,10 +55,22 @@ BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:8000")
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, use_fallback: bool = False):
     """Render the index page."""
+    if use_fallback:
+        return templates.TemplateResponse(
+            "fallback.html", {"request": request, "backend_url": BACKEND_API_URL}
+        )
+    else:
+        return templates.TemplateResponse(
+            "index.html", {"request": request, "backend_url": BACKEND_API_URL}
+        )
+        
+@app.get("/fallback", response_class=HTMLResponse)
+async def fallback(request: Request):
+    """Render the fallback page."""
     return templates.TemplateResponse(
-        "index.html", {"request": request, "backend_url": BACKEND_API_URL}
+        "fallback.html", {"request": request, "backend_url": BACKEND_API_URL}
     )
 
 

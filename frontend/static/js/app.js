@@ -605,6 +605,34 @@ const ErrorAlert = ({ message }) => {
   );
 };
 
-// Render the app
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    console.log("Initializing App...");
+    
+    // Check if we have the newer createRoot API (React 18+)
+    if (ReactDOM.createRoot) {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(App));
+    } else {
+      // Fallback for older React versions
+      ReactDOM.render(
+        React.createElement(App), 
+        document.getElementById('root')
+      );
+    }
+    
+    console.log("App initialized successfully");
+  } catch (error) {
+    console.error("Error initializing app:", error);
+    
+    // Display error message
+    document.getElementById('error-container').innerHTML = `
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+        <strong class="font-bold">Error initializing app:</strong>
+        <span class="block sm:inline"> ${error.message}</span>
+        <pre class="mt-2 text-xs overflow-auto">${error.stack || 'No stack trace available'}</pre>
+      </div>
+    `;
+  }
+});

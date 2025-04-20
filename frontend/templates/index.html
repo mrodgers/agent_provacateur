@@ -6,6 +6,20 @@
     <title>Agent Provocateur</title>
     <script>
         window.BACKEND_URL = "{{ backend_url }}";
+        // Add error logging
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('Error:', message, 'at', source, lineno, colno);
+            console.error(error);
+            // Display error on the page for easy debugging
+            document.getElementById('error-container').innerHTML = 
+                `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                    <strong class="font-bold">Error:</strong>
+                    <span class="block sm:inline"> ${message}</span>
+                    <p class="text-sm">At ${source}:${lineno}:${colno}</p>
+                    <pre class="mt-2 text-xs overflow-auto">${error && error.stack ? error.stack : 'No stack trace available'}</pre>
+                </div>`;
+            return false;
+        };
     </script>
     <!-- Import React from CDN for initial development -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -14,11 +28,46 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Include Axios for API calls -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        /* Add some basic styles for initial loading state */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            background-color: #f3f4f6;
+        }
+        .loading-spinner {
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
-    <div id="root" class="min-h-screen"></div>
+    <!-- Root element for React app -->
+    <div id="root" class="min-h-screen">
+        <!-- Initial loading state, replaced by React -->
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Loading Agent Provocateur...</p>
+        </div>
+    </div>
+    
+    <!-- Error container for displaying errors -->
+    <div id="error-container" class="fixed bottom-0 left-0 right-0 p-4"></div>
     
     <!-- Our main app script -->
-    <script src="/static/js/app.js" type="module"></script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>
