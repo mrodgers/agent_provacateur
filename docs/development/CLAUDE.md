@@ -51,6 +51,25 @@ User: "I've started the backend server on port 8000. Please test the frontend se
 Claude: [starts only the frontend server with appropriate backend URL]
 ```
 
+## Testing Server Configuration
+
+When running integration tests involving the frontend and backend servers:
+
+1. **Backend Server**:
+   - Should run on port 8765 to avoid conflicts with default port 8000
+   - Use `--no-metrics` flag when running in test environments
+   - Command: `python -m agent_provocateur.main --no-metrics --port 8765`
+
+2. **Frontend Server**:
+   - Should run on port 3001 to avoid conflicts with default port 3000
+   - Configure with correct backend URL to port 8765
+   - Command: `python frontend/server.py --port 3001 --backend-url http://localhost:8765`
+
+3. **Health Endpoints**:
+   - Backend health check: `http://localhost:8765/api/health`
+   - Frontend health check: `http://localhost:3001/api/health`
+   - Frontend backend status check: `http://localhost:3001/api/info`
+
 ## Project Overview
 This project implements a multi-agent research system with:
 1. MCP Server Mock for simulated tool interactions

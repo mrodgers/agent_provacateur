@@ -356,6 +356,11 @@ class McpServer:
             self.config = config
             return self.config
             
+        @self.app.get("/api/health")
+        async def health_check():
+            """Health check endpoint."""
+            return {"status": "ok"}
+            
         @self.app.post(
             "/llm/generate",
             response_model=LlmResponse,
