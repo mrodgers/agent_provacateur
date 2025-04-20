@@ -197,15 +197,51 @@ The XML verification capabilities can be integrated into larger workflows:
 4. **Task Assignment**: Assign verification tasks to human or AI verifiers
 5. **Reporting**: Compile verification results and generate reports
 
+## XML Research
+
+Agent Provocateur now includes integrated research capabilities for XML documents through the CLI's `research` command:
+
+```bash
+# Research entities in an XML document
+ap-client research xml1
+
+# Customize research parameters
+ap-client research xml1 --min-confidence 0.7 --max-entities 5 
+
+# Generate enriched XML output
+ap-client research xml1 --format xml --output enriched.xml
+
+# Include search for external validation
+ap-client research xml1 --with-search --with-jira
+```
+
+The research workflow:
+
+1. **Entity Extraction**: XML documents are analyzed to extract entities requiring research
+2. **Research Orchestration**: The ResearchSupervisorAgent coordinates research on each entity
+3. **Definition Generation**: Definitions are generated with confidence scores
+4. **Enriched XML Output**: Original XML is enhanced with research results
+5. **Validation**: Output XML is validated for correctness
+
+The enriched XML includes:
+- The original XML content
+- Research results for each entity
+- Definitions with confidence scores
+- Source information
+- Validation status
+
+For implementation details, see [Phase 3 Implementation](../implementation/phase3_implementation.md).
+
 ## Next Steps
 
-Future enhancements planned for XML verification:
+Future enhancements planned for XML verification and research:
 
-1. Integration with search capabilities for automatic fact-checking
-2. LLM-assisted verification with context retrieval
+1. Advanced entity extraction with natural language understanding
+2. Integration with additional search capabilities for automatic fact-checking
 3. Improved confidence scoring with machine learning
 4. Collaborative verification workflows with human-in-the-loop
-5. Schema validation and structural verification
+5. Full DocBook and DITA schema validation and compliance checking
+6. Custom research templates for different domains
 
 ## Troubleshooting
 

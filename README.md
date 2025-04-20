@@ -214,7 +214,7 @@ ap-client list-documents --type code
 
 ### Working with XML Documents
 
-The XML Agent provides advanced capabilities for working with XML documents, identifying content that requires verification, and planning verification tasks.
+The XML Agent provides advanced capabilities for working with XML documents, identifying content that requires verification, planning verification tasks, and researching entities.
 
 #### XML Document Handling
 
@@ -237,7 +237,27 @@ python scripts/xml_agent_cli.py plan xml1                            # Create ve
 python scripts/xml_agent_cli.py verify xml1 --search-depth high      # Test batch verification
 ```
 
-For more details on XML verification, see the [XML Verification Guide](docs/guides/xml_verification.md).
+#### XML Research
+
+The system supports extracting entities from XML documents and researching them to generate enriched XML output:
+
+```bash
+# Research entities in an XML document
+ap-client research xml1
+
+# Customize research parameters
+ap-client research xml1 --min-confidence 0.7 --max-entities 5 
+
+# Generate enriched XML output
+ap-client research xml1 --format xml --output enriched.xml
+
+# Include search for external validation
+ap-client research xml1 --with-search
+```
+
+For more details on XML verification and research, see:
+- [XML Verification Guide](docs/guides/xml_verification.md)
+- [XML Research Implementation](docs/implementation/phase3_implementation.md)
 
 ### Using the LLM CLI
 

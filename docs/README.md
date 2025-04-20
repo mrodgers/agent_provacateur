@@ -41,6 +41,7 @@ Documentation of implementation phases and specific components:
 - [Phase 1 Implementation](implementation/phase1_implementation.md): MCP Tools development details
 - [Phase 2 Implementation](implementation/phase2_implementation.md): A2A Communication development details
 - [Phase 2 XML Implementation](implementation/PHASE2_XML_IMPLEMENTATION.md): XML Analysis Agent implementation details
+- [Phase 3 Implementation](implementation/phase3_implementation.md): CLI Research integration for XML agent
 
 ## Components
 
