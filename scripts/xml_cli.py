@@ -6,34 +6,19 @@ Command-line tool for working with XML documents in Agent Provocateur.
 This is a simple script to test the XML functionality interactively.
 """
 
-from pathlib import Path
-
-def _resolve_file_path(file_path):
-    """
-    Resolve file path for XML files.
-    
-    Args:
-        file_path: The input path (absolute or relative)
-        
-    Returns:
-        Path object with the resolved path
-    """
-    if file_path.startswith('/'):
-        return Path(file_path)
-    else:
-        # First try in current directory
-        result_path = Path(file_path)
-        if not result_path.exists():
-            # Then try in examples directory
-            result_path = Path("examples") / file_path
-        return result_path
-
 import argparse
 import asyncio
 import json
 import sys
 from pathlib import Path
 
+# Import shared utilities
+from xml_utils import _resolve_file_path, setup_python_path, get_api_url, ensure_server_running
+
+# Set up Python path
+setup_python_path()
+
+# Import project modules
 from agent_provocateur.mcp_client import McpClient
 from agent_provocateur.xml_parser import load_xml_file, identify_researchable_nodes
 
@@ -48,117 +33,134 @@ async def list_xml_docs(args):
         print(f"Found {len(docs)} XML documents:")
         for doc in docs:
             # Check if it's an XmlDocument with root_element
-            if hasattr(doc, 'root_element'):
-                print(f"- {doc.doc_id}: {doc.title} ({doc.root_element})")
-            else:
-                print(f"- {doc.doc_id}: {doc.title} (XML Document)")
+            root_element = getattr(doc, 'root_element', 'Unknown')
+            print(f"  - {doc.doc_id}: {doc.title} ({root_element})")
 
 
 async def get_xml_doc(args):
     """Get a specific XML document."""
     client = McpClient(base_url=args.server)
-    try:
-        doc = await client.get_xml_document(args.id)
-        if args.json:
-            print(json.dumps(doc.dict(), indent=2))
-        else:
-            print(f"XML Document: {doc.title} ({doc.doc_id})")
-            print(f"Root Element: {doc.root_element}")
-            print(f"Namespaces: {doc.namespaces}")
-            print(f"Created At: {doc.created_at}")
-            print(f"Updated At: {doc.updated_at}")
-            print(f"Researchable Nodes: {len(doc.researchable_nodes)}")
-            
-            # Show content if requested
-            if args.content:
-                print("\nContent:")
-                print(doc.content)
-            
-            # Show nodes if requested
-            if args.nodes:
-                print("\nResearchable Nodes:")
-                for i, node in enumerate(doc.researchable_nodes):
-                    print(f"\nNode {i+1}:")
-                    print(f"  XPath: {node.xpath}")
-                    print(f"  Element: {node.element_name}")
-                    print(f"  Content: {node.content}")
-                    print(f"  Attributes: {node.attributes}")
-                    print(f"  Status: {node.verification_status}")
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+    doc = await client.get_document(args.doc_id)
+    
+    if args.json:
+        # Output as JSON
+        print(json.dumps(doc.dict(), indent=2))
+        return
+    
+    print(f"Document: {doc.doc_id}")
+    print(f"Title: {doc.title}")
+    print(f"Type: {doc.doc_type}")
+    
+    if hasattr(doc, 'root_element'):
+        print(f"Root Element: {doc.root_element}")
+    
+    if args.content:
+        print("\nContent:")
+        print("=" * 50)
+        print(doc.content)
+        print("=" * 50)
+    
+    if args.nodes and hasattr(doc, 'researchable_nodes'):
+        print("\nResearchable Nodes:")
+        print("=" * 50)
+        for i, node in enumerate(doc.researchable_nodes, 1):
+            path = node.get('xpath', 'Unknown')
+            confidence = node.get('confidence', 0.0)
+            print(f"{i}. {path} (confidence: {confidence:.2f})")
+            if 'evidence' in node and node['evidence']:
+                print(f"   Evidence: {node['evidence']}")
+        print("=" * 50)
 
 
-async def upload_xml(args):
+async def upload_xml_doc(args):
     """Upload a new XML document."""
-    client = McpClient(base_url=args.server)
+    file_path = _resolve_file_path(args.file)
+    if not file_path.exists():
+        print(f"Error: File not found: {file_path}")
+        return
+    
+    # Load the XML file
+    xml_content = file_path.read_text()
+    
+    # Parse the file to get the root element
     try:
-        # Load XML from file
-        file_path = args.file
-        # Use the helper method to resolve the path
-        xml_file_path = _resolve_file_path(file_path)
-        if not xml_file_path.exists():
-            print(f"Error: File {xml_file_path} does not exist")
-            sys.exit(1)
-        
-        xml_content = load_xml_file(str(xml_file_path))
-        
-        # Check if the content is valid XML
-        try:
-            nodes = identify_researchable_nodes(xml_content)
-            print(f"Found {len(nodes)} researchable nodes")
-        except Exception as e:
-            print(f"Warning: XML parsing error: {e}")
-        
-        # Upload the document
-        doc = await client.upload_xml(xml_content, args.title)
-        
-        if args.json:
-            print(json.dumps(doc.dict(), indent=2))
-        else:
-            print(f"Successfully uploaded XML document: {doc.title} ({doc.doc_id})")
-            print(f"Root Element: {doc.root_element}")
-            print(f"Created At: {doc.created_at}")
-            print(f"Researchable Nodes: {len(doc.researchable_nodes)}")
+        root_element = load_xml_file(file_path).tag
     except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        print(f"Error parsing XML file: {e}")
+        return
+    
+    # Create client and upload
+    client = McpClient(base_url=args.server)
+    
+    if args.analyze:
+        # Identify researchable nodes
+        print("Analyzing XML for researchable nodes...")
+        nodes = identify_researchable_nodes(file_path)
+        print(f"Found {len(nodes)} researchable nodes")
+        
+        # Create document with researchable nodes
+        try:
+            result = await client.create_xml_document(
+                title=args.title or file_path.stem,
+                content=xml_content,
+                root_element=root_element,
+                researchable_nodes=nodes
+            )
+            print(f"Uploaded document with ID: {result.doc_id}")
+            
+        except Exception as e:
+            print(f"Error uploading document: {e}")
+    else:
+        # Create document without analysis
+        try:
+            result = await client.create_xml_document(
+                title=args.title or file_path.stem,
+                content=xml_content,
+                root_element=root_element
+            )
+            print(f"Uploaded document with ID: {result.doc_id}")
+            
+        except Exception as e:
+            print(f"Error uploading document: {e}")
 
 
 def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(description="XML document tool for Agent Provocateur")
-    parser.add_argument("--server", default="http://localhost:8000", help="MCP server URL")
-    parser.add_argument("--json", action="store_true", help="Output in JSON format")
+    parser = argparse.ArgumentParser(description='XML Document CLI')
+    parser.add_argument('--server', default=get_api_url(), help='Server URL')
+    parser.add_argument('--json', action='store_true', help='Output as JSON')
     
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    subparsers = parser.add_subparsers(dest='command', help='Command to run')
     
     # List command
-    list_parser = subparsers.add_parser("list", help="List XML documents")
+    list_parser = subparsers.add_parser('list', help='List all XML documents')
     
     # Get command
-    get_parser = subparsers.add_parser("get", help="Get an XML document")
-    get_parser.add_argument("id", help="Document ID")
-    get_parser.add_argument("--content", action="store_true", help="Show document content")
-    get_parser.add_argument("--nodes", action="store_true", help="Show researchable nodes")
+    get_parser = subparsers.add_parser('get', help='Get a specific XML document')
+    get_parser.add_argument('doc_id', help='Document ID')
+    get_parser.add_argument('--content', action='store_true', help='Show content')
+    get_parser.add_argument('--nodes', action='store_true', help='Show researchable nodes')
     
     # Upload command
-    upload_parser = subparsers.add_parser("upload", help="Upload an XML document")
-    upload_parser.add_argument("file", help="Path to XML file")
-    upload_parser.add_argument("--title", required=True, help="Document title")
+    upload_parser = subparsers.add_parser('upload', help='Upload a new XML document')
+    upload_parser.add_argument('file', help='XML file to upload')
+    upload_parser.add_argument('--title', help='Document title (default: filename)')
+    upload_parser.add_argument('--analyze', action='store_true', 
+                             help='Analyze for researchable nodes')
     
     args = parser.parse_args()
     
-    if not args.command:
+    # Check if server is running
+    ensure_server_running()
+    
+    if args.command == 'list':
+        asyncio.run(list_xml_docs(args))
+    elif args.command == 'get':
+        asyncio.run(get_xml_doc(args))
+    elif args.command == 'upload':
+        asyncio.run(upload_xml_doc(args))
+    else:
         parser.print_help()
         sys.exit(1)
-    
-    if args.command == "list":
-        asyncio.run(list_xml_docs(args))
-    elif args.command == "get":
-        asyncio.run(get_xml_doc(args))
-    elif args.command == "upload":
-        asyncio.run(upload_xml(args))
 
 
 if __name__ == "__main__":

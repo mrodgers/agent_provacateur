@@ -7,303 +7,217 @@ This tool allows interactive testing of the XML Agent for advanced
 node identification and verification planning.
 """
 
-from pathlib import Path
-
-def _resolve_file_path(file_path):
-    """
-    Resolve file path for XML files.
-    
-    Args:
-        file_path: The input path (absolute or relative)
-        
-    Returns:
-        Path object with the resolved path
-    """
-    if file_path.startswith('/'):
-        return Path(file_path)
-    else:
-        # First try in current directory
-        result_path = Path(file_path)
-        if not result_path.exists():
-            # Then try in examples directory
-            result_path = Path("examples") / file_path
-        return result_path
-
 import argparse
 import asyncio
 import json
 import sys
 from pathlib import Path
 
+# Import shared utilities
+from xml_utils import _resolve_file_path, setup_python_path, get_api_url, ensure_server_running
+
+# Set up Python path
+setup_python_path()
+
+# Import project modules
 from agent_provocateur.mcp_client import McpClient
-from agent_provocateur.xml_parser import (
-    load_xml_file,
-    identify_researchable_nodes,
-    identify_researchable_nodes_advanced,
-    analyze_xml_verification_needs
-)
 from agent_provocateur.xml_agent import XmlAgent
-from agent_provocateur.a2a_messaging import InMemoryMessageBroker
-from agent_provocateur.a2a_models import TaskRequest
 
 
-async def advanced_identify(args):
-    """Identify researchable nodes with advanced rules."""
-    try:
-        # Load XML file
-        if args.file:
-            file_path = args.file
-            # Use the helper method to resolve the path
-            xml_file_path = _resolve_file_path(file_path)
-            if not xml_file_path.exists():
-                print(f"Error: File {xml_file_path} does not exist")
-                sys.exit(1)
-            
-            xml_content = load_xml_file(str(xml_file_path))
-            print(f"Loaded XML file: {xml_file_path}")
-        elif args.doc_id:
-            client = McpClient(base_url=args.server)
-            xml_content = await client.get_xml_content(args.doc_id)
-            print(f"Loaded XML document: {args.doc_id}")
-        else:
-            print("Error: Either --file or --doc_id must be provided")
-            sys.exit(1)
-        
-        # Load custom rules from file if provided
-        keyword_rules = None
-        attribute_rules = None
-        content_patterns = None
-        
-        if args.rules_file:
-            try:
-                rules_path = args.rules_file
-                # Use the helper method to resolve the path
-                rules_file_path = _resolve_file_path(rules_path)
-                
-                if not rules_file_path.exists():
-                    print(f"Error: Rules file {rules_file_path} does not exist")
-                    sys.exit(1)
-                
-                with open(rules_file_path, 'r') as f:
-                    rules = json.load(f)
-                
-                keyword_rules = rules.get("keyword_rules")
-                attribute_rules = rules.get("attribute_rules")
-                content_patterns = rules.get("content_patterns")
-                
-                print(f"Loaded custom rules from {rules_path}")
-            except Exception as e:
-                print(f"Error loading rules file: {e}")
-                sys.exit(1)
-        
-        # Identify nodes
-        print(f"Identifying nodes with confidence threshold: {args.confidence}")
-        nodes = identify_researchable_nodes_advanced(
-            xml_content,
-            keyword_rules=keyword_rules,
-            attribute_rules=attribute_rules,
-            content_patterns=content_patterns,
-            min_confidence=args.confidence
-        )
-        
-        # Display results
-        print(f"\nFound {len(nodes)} researchable nodes:")
-        
-        for i, node in enumerate(nodes, 1):
-            print(f"\nNode {i}:")
-            print(f"  XPath: {node.xpath}")
-            print(f"  Element: {node.element_name}")
-            print(f"  Content: {node.content}")
-            print(f"  Attributes: {node.attributes}")
-            print(f"  Confidence: {node.verification_data.get('confidence', 0):.2f}")
-            
-            # Show evidence if requested
-            if args.evidence and "evidence" in node.verification_data:
-                print("  Evidence:")
-                for evidence in node.verification_data["evidence"]:
-                    print(f"    - {evidence}")
-        
-        # Save results to file if requested
-        if args.output:
-            with open(args.output, 'w') as f:
-                json.dump([node.dict() for node in nodes], f, indent=2)
-            print(f"\nResults saved to {args.output}")
-    
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-
-
-async def create_verification_plan(args):
-    """Create a verification plan for an XML document."""
-    try:
-        # Initialize XmlAgent
-        broker = InMemoryMessageBroker()
-        agent = XmlAgent(agent_id="xml_agent", broker=broker, mcp_url=args.server)
-        
-        # Initialize verification config
-        agent.verification_config = {
-            "min_confidence": 0.5,
-            "custom_rules": {},
-            "prioritize_recent": True,
-            "max_nodes_per_task": 5
-        }
-        
-        # Create request
-        task_request = TaskRequest(
-            task_id="cli_task",
-            source_agent="cli_user",
-            target_agent="xml_agent",
-            intent="create_verification_plan",
-            payload={"doc_id": args.doc_id}
-        )
-        
-        # Call the agent
-        print(f"Creating verification plan for document: {args.doc_id}")
-        result = await agent.handle_create_verification_plan(task_request)
-        
-        # Display results
-        if not result.get("verification_needed", False):
-            print(f"\nVerification not needed: {result.get('reason', 'No reason provided')}")
+async def identify_xml_nodes(args):
+    """Identify researchable nodes in an XML document."""
+    if args.file:
+        file_path = _resolve_file_path(args.file)
+        if not file_path.exists():
+            print(f"Error: File not found: {file_path}")
             return
         
-        print(f"\nVerification Plan for '{result.get('title')}':")
-        print(f"  Priority: {result.get('priority', 'unknown')}")
-        print(f"  Nodes: {result.get('node_count', 0)}")
-        print(f"  Estimated time: {result.get('estimated_time_minutes', 0)} minutes")
-        print(f"  Approach: {result.get('recommended_approach', 'sequential')}")
+        # Create XML agent
+        agent = XmlAgent()
         
-        tasks = result.get("tasks", [])
-        print(f"\nTasks ({len(tasks)}):")
-        
-        for i, task in enumerate(tasks, 1):
-            print(f"\nTask {i} - {task['task_id']}:")
-            print(f"  Element Type: {task['element_type']}")
-            print(f"  Priority: {task['priority']}")
-            print(f"  Nodes: {task['node_count']}")
-            print(f"  Estimated time: {task['estimated_minutes']} minutes")
-        
-        # Save results to file if requested
-        if args.output:
-            with open(args.output, 'w') as f:
-                json.dump(result, f, indent=2)
-            print(f"\nVerification plan saved to {args.output}")
-    
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-
-
-async def batch_verify(args):
-    """Test batch verification of nodes in an XML document."""
-    try:
-        # Initialize XmlAgent
-        broker = InMemoryMessageBroker()
-        agent = XmlAgent(agent_id="xml_agent", broker=broker, mcp_url=args.server)
-        
-        # Initialize verification config
-        agent.verification_config = {
-            "min_confidence": 0.5,
-            "custom_rules": {},
-            "prioritize_recent": True,
-            "max_nodes_per_task": 5
-        }
-        
-        # Create request with options
-        options = {
-            "search_depth": args.search_depth,
-            "verify_all": True,
-            "strict_mode": args.strict
-        }
-        
-        task_request = TaskRequest(
-            task_id="cli_task",
-            source_agent="cli_user",
-            target_agent="xml_agent",
-            intent="batch_verify_nodes",
-            payload={
-                "doc_id": args.doc_id,
-                "options": options
-            }
+        # Identify nodes
+        print(f"Analyzing {file_path}...")
+        nodes = await agent.identify_researchable_nodes(
+            file_path, 
+            min_confidence=args.confidence,
+            rules_file=args.rules_file
         )
         
-        # Call the agent
-        print(f"Executing batch verification for document: {args.doc_id}")
-        print(f"Options: {json.dumps(options, indent=2)}")
-        
-        result = await agent.handle_batch_verify_nodes(task_request)
-        
-        # Display results
-        print(f"\nVerification Results:")
-        print(f"  Total nodes: {result['total_nodes']}")
-        print(f"  Completed: {result['completed_nodes']}")
-        
-        verification_results = result.get("verification_results", [])
-        print(f"\nNode Results ({len(verification_results)}):")
-        
-        for i, node_result in enumerate(verification_results, 1):
-            print(f"\nNode {i}:")
-            print(f"  XPath: {node_result['xpath']}")
-            print(f"  Element: {node_result['element_name']}")
-            print(f"  Status: {node_result['status']}")
-            print(f"  Confidence: {node_result['confidence']}")
-            
-            if node_result.get("sources"):
-                print("  Sources:")
-                for source in node_result["sources"]:
-                    print(f"    - {source}")
-        
-        # Save results to file if requested
-        if args.output:
-            with open(args.output, 'w') as f:
-                json.dump(result, f, indent=2)
-            print(f"\nVerification results saved to {args.output}")
+        # Output results
+        if args.json:
+            print(json.dumps(nodes, indent=2))
+        else:
+            print(f"Found {len(nodes)} researchable nodes:")
+            for i, node in enumerate(nodes, 1):
+                path = node.get('xpath', 'Unknown')
+                confidence = node.get('confidence', 0.0)
+                print(f"{i}. {path} (confidence: {confidence:.2f})")
+                if args.evidence and 'evidence' in node and node['evidence']:
+                    print(f"   Evidence: {node['evidence']}")
     
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+    elif args.doc_id:
+        # Use existing document from server
+        client = McpClient(base_url=args.server)
+        doc = await client.get_document(args.doc_id)
+        
+        agent = XmlAgent()
+        
+        # Identify nodes
+        print(f"Analyzing document {args.doc_id}...")
+        nodes = await agent.analyze_document(
+            doc, 
+            min_confidence=args.confidence,
+            rules_file=args.rules_file
+        )
+        
+        # Output results
+        if args.json:
+            print(json.dumps(nodes, indent=2))
+        else:
+            print(f"Found {len(nodes)} researchable nodes:")
+            for i, node in enumerate(nodes, 1):
+                path = node.get('xpath', 'Unknown')
+                confidence = node.get('confidence', 0.0)
+                print(f"{i}. {path} (confidence: {confidence:.2f})")
+                if args.evidence and 'evidence' in node and node['evidence']:
+                    print(f"   Evidence: {node['evidence']}")
+    
+    else:
+        print("Error: Either --file or --doc_id must be specified")
+
+
+async def plan_verification(args):
+    """Plan verification for an XML document."""
+    client = McpClient(base_url=args.server)
+    doc = await client.get_document(args.doc_id)
+    
+    agent = XmlAgent()
+    
+    # Create verification plan
+    print(f"Creating verification plan for document {args.doc_id}...")
+    plan = await agent.create_verification_plan(doc)
+    
+    # Output results
+    if args.json:
+        print(json.dumps(plan, indent=2))
+    else:
+        print("\nVerification Plan:")
+        print("=" * 50)
+        print(f"Document: {doc.doc_id} - {doc.title}")
+        print(f"Root Element: {getattr(doc, 'root_element', 'Unknown')}")
+        print(f"Total tasks: {len(plan)}")
+        print("=" * 50)
+        
+        for i, task in enumerate(plan, 1):
+            print(f"\nTask {i}: {task.get('task_type', 'Unknown')}")
+            print(f"Node: {task.get('xpath', 'Unknown')}")
+            print(f"Priority: {task.get('priority', 0)}")
+            if 'search_query' in task:
+                print(f"Search query: {task['search_query']}")
+            if 'note' in task:
+                print(f"Note: {task['note']}")
+            if 'verification_steps' in task:
+                print("Verification steps:")
+                for j, step in enumerate(task['verification_steps'], 1):
+                    print(f"  {j}. {step}")
+
+
+async def verify_xml(args):
+    """Run verification on an XML document."""
+    client = McpClient(base_url=args.server)
+    doc = await client.get_document(args.doc_id)
+    
+    agent = XmlAgent()
+    
+    # Run verification
+    print(f"Verifying document {args.doc_id}...")
+    print(f"Search depth: {args.search_depth}")
+    
+    results = await agent.verify_document(
+        doc, 
+        search_depth=args.search_depth,
+        max_nodes=args.max_nodes
+    )
+    
+    # Output results
+    if args.json:
+        print(json.dumps(results, indent=2))
+    else:
+        print("\nVerification Results:")
+        print("=" * 50)
+        print(f"Document: {doc.doc_id} - {doc.title}")
+        print(f"Nodes verified: {len(results)}")
+        print("=" * 50)
+        
+        for i, result in enumerate(results, 1):
+            print(f"\nNode {i}: {result.get('xpath', 'Unknown')}")
+            print(f"Confidence: {result.get('confidence', 0.0):.2f}")
+            
+            if 'verification_result' in result:
+                vr = result['verification_result']
+                print(f"Verified: {vr.get('verified', False)}")
+                print(f"Confidence score: {vr.get('confidence_score', 0.0):.2f}")
+                
+                if 'evidence' in vr:
+                    print("Evidence:")
+                    for j, evidence in enumerate(vr['evidence'], 1):
+                        print(f"  {j}. {evidence}")
+                
+                if 'search_results' in vr:
+                    print(f"Search results: {len(vr['search_results'])}")
+                    if args.verbose:
+                        for j, sr in enumerate(vr['search_results'], 1):
+                            print(f"  {j}. {sr.get('title', 'Untitled')}")
+                            print(f"     URL: {sr.get('url', 'N/A')}")
+                            if 'snippet' in sr:
+                                print(f"     Snippet: {sr['snippet'][:100]}...")
 
 
 def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(description="XML Agent tool for Agent Provocateur")
-    parser.add_argument("--server", default="http://localhost:8000", help="MCP server URL")
+    parser = argparse.ArgumentParser(description='XML Agent CLI')
+    parser.add_argument('--server', default=get_api_url(), help='Server URL')
+    parser.add_argument('--json', action='store_true', help='Output as JSON')
     
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    subparsers = parser.add_subparsers(dest='command', help='Command to run')
     
-    # Advanced identification command
-    identify_parser = subparsers.add_parser("identify", help="Identify researchable nodes with advanced rules")
-    identify_parser.add_argument("--file", help="Path to XML file")
-    identify_parser.add_argument("--doc_id", help="Document ID if already uploaded")
-    identify_parser.add_argument("--confidence", type=float, default=0.5, help="Minimum confidence threshold (0.0-1.0)")
-    identify_parser.add_argument("--rules-file", help="JSON file with custom identification rules")
-    identify_parser.add_argument("--evidence", action="store_true", help="Show evidence for node selection")
-    identify_parser.add_argument("--output", help="Output file to save results (JSON)")
+    # Identify command
+    identify_parser = subparsers.add_parser('identify', help='Identify researchable nodes')
+    identify_parser.add_argument('--file', help='XML file to analyze')
+    identify_parser.add_argument('--doc_id', help='Document ID to analyze')
+    identify_parser.add_argument('--confidence', type=float, default=0.5, 
+                               help='Minimum confidence threshold (0.0-1.0)')
+    identify_parser.add_argument('--rules-file', help='Path to custom rules file')
+    identify_parser.add_argument('--evidence', action='store_true', 
+                               help='Show evidence for each node')
     
-    # Verification plan command
-    plan_parser = subparsers.add_parser("plan", help="Create verification plan for XML document")
-    plan_parser.add_argument("doc_id", help="Document ID")
-    plan_parser.add_argument("--output", help="Output file to save verification plan (JSON)")
+    # Plan command
+    plan_parser = subparsers.add_parser('plan', help='Create verification plan')
+    plan_parser.add_argument('doc_id', help='Document ID to plan verification for')
     
-    # Batch verification command
-    verify_parser = subparsers.add_parser("verify", help="Test batch verification of nodes")
-    verify_parser.add_argument("doc_id", help="Document ID")
-    verify_parser.add_argument("--search-depth", choices=["low", "medium", "high"], default="medium", help="Search depth")
-    verify_parser.add_argument("--strict", action="store_true", help="Use strict verification mode")
-    verify_parser.add_argument("--output", help="Output file to save verification results (JSON)")
+    # Verify command
+    verify_parser = subparsers.add_parser('verify', help='Verify XML document')
+    verify_parser.add_argument('doc_id', help='Document ID to verify')
+    verify_parser.add_argument('--search-depth', choices=['low', 'medium', 'high'],
+                             default='medium', help='Search depth for verification')
+    verify_parser.add_argument('--max-nodes', type=int, default=5,
+                             help='Maximum number of nodes to verify')
+    verify_parser.add_argument('--verbose', action='store_true',
+                             help='Show detailed results')
     
     args = parser.parse_args()
     
-    if not args.command:
+    # Check if server is running
+    ensure_server_running()
+    
+    if args.command == 'identify':
+        asyncio.run(identify_xml_nodes(args))
+    elif args.command == 'plan':
+        asyncio.run(plan_verification(args))
+    elif args.command == 'verify':
+        asyncio.run(verify_xml(args))
+    else:
         parser.print_help()
         sys.exit(1)
-    
-    if args.command == "identify":
-        asyncio.run(advanced_identify(args))
-    elif args.command == "plan":
-        asyncio.run(create_verification_plan(args))
-    elif args.command == "verify":
-        asyncio.run(batch_verify(args))
 
 
 if __name__ == "__main__":

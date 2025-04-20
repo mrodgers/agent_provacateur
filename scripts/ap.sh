@@ -1,33 +1,12 @@
 #!/bin/bash
-
 # Universal utility script for Agent Provocateur development
 
-# Ensure we're in the project root
+# Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."
+source "$SCRIPT_DIR/utils.sh"
 
-# Check if virtual environment exists
-check_venv() {
-    if [ ! -d ".venv" ]; then
-        echo "Virtual environment not found. Setting up..."
-        setup_env
-        if [ $? -ne 0 ]; then
-            echo "Environment setup failed. Please check errors and try again."
-            exit 1
-        fi
-    fi
-}
-
-# Activate virtual environment
-activate_venv() {
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-        # Windows
-        source .venv/Scripts/activate
-    else
-        # Unix/MacOS
-        source .venv/bin/activate
-    fi
-}
+# Ensure we're in the project root
+cd "$(get_project_root)"
 
 # Setup environment command
 setup_env() {
@@ -84,8 +63,7 @@ setup_env() {
 
 # Run tests command
 run_tests() {
-    check_venv
-    activate_venv
+    ensure_tools
     
     # Check for test arguments
     if [ $# -eq 0 ]; then
@@ -122,40 +100,16 @@ run_tests() {
 
 # Start server command
 start_server() {
-    check_venv
-    activate_venv
+    ensure_tools
     
-    # Default values
-    HOST="127.0.0.1"
-    PORT="8000"
-    
-    # Check for arguments
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --host=*)
-                HOST="${1#*=}"
-                shift
-                ;;
-            --port=*)
-                PORT="${1#*=}"
-                shift
-                ;;
-            *)
-                echo "Unknown parameter: $1"
-                echo "Usage: $0 server [--host=127.0.0.1] [--port=8000]"
-                exit 1
-                ;;
-        esac
-    done
-    
-    echo "Starting MCP server on $HOST:$PORT..."
-    ap-server --host "$HOST" --port "$PORT"
+    # Instead of directly starting the server, use the service manager
+    echo "Starting MCP server using service manager..."
+    "$SCRIPT_DIR/start_ap.sh" start mcp_server "$@"
 }
 
 # Run workflow command
 run_workflow() {
-    check_venv
-    activate_venv
+    ensure_tools
     
     if [ $# -eq 0 ]; then
         echo "Usage: $0 workflow <query> [--ticket=TICKET-ID] [--doc=DOC-ID]"
@@ -201,7 +155,8 @@ run_workflow() {
 
 # Show help information
 show_help() {
-    echo "Agent Provocateur Development Utility"
+    local project_name="$(get_project_name)"
+    echo "$project_name Development Utility"
     echo ""
     echo "Usage: $0 <command> [options]"
     echo ""
@@ -212,12 +167,17 @@ show_help() {
     echo "  workflow - Run a sample agent workflow"
     echo "  help     - Show this help information"
     echo ""
+    echo "For service management, use the start_ap.sh script:"
+    echo "  ./scripts/start_ap.sh start     - Start all services"
+    echo "  ./scripts/start_ap.sh stop      - Stop all services"
+    echo "  ./scripts/start_ap.sh status    - Check service status"
+    echo "  ./scripts/start_ap.sh restart   - Restart services"
+    echo ""
     echo "Examples:"
     echo "  $0 setup                                  # Setup environment"
     echo "  $0 test                                   # Run all tests"
     echo "  $0 test tests/test_main.py               # Run specific tests"
     echo "  $0 server                                # Start server on localhost:8000"
-    echo "  $0 server --host=0.0.0.0 --port=8080     # Start server with custom host/port"
     echo "  $0 workflow \"research query\" --ticket=AP-1 # Run a workflow"
 }
 
