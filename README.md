@@ -193,10 +193,23 @@ For more details on document types, see the [Document Types Guide](docs/guides/d
 ## Development
 
 ```bash
-# Run tests
+# Run tests with standard Python
 pytest                     # Run all tests with pytest
 pytest -v                  # Run with verbose output
-python -m pytest --cov=src.agent_provocateur  # Run with coverage report
+python -m pytest --cov=agent_provocateur  # Run with coverage report
+
+# Run tests with uv
+uv run pytest              # Run all tests with pytest via uv
+uv run pytest -v           # Run with verbose output
+uv run python -m pytest    # Run pytest as a module
+uv run pytest --cov=agent_provocateur  # Run with coverage
+uv run pytest tests/test_web_search_integration.py  # Test specific file
+uv run pytest tests/test_web_search_integration.py::TestWebSearchIntegration::test_research_entities_with_web_search  # Test specific function
+
+# Advanced uv test options
+uv run --group dev pytest  # Run with dev dependencies
+uv run --with pytest-cov pytest --cov=agent_provocateur  # Add extra packages on-the-fly
+uv run -p 3.9 pytest       # Use specific Python version
 
 # Type checking
 mypy src

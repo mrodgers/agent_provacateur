@@ -27,8 +27,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run sample workflow: `ap-workflow "research query" --ticket AP-1 --doc doc1`
 - Run linting: `ruff check .`
 - Run type checking: `mypy src`
-- Run tests: `pytest`
+- Run tests with standard Python: `pytest`
 - Run tests with coverage: `pytest --cov=agent_provocateur`
+- Run tests with uv: `uv run pytest`
+- Run specific tests with uv: `uv run pytest tests/test_web_search_integration.py`
+- Run tests with specific Python version: `uv run -p 3.9 pytest`
 
 ### Web Search MCP Server
 - Start the Web Search MCP server: `./scripts/ap_web_search.sh start`

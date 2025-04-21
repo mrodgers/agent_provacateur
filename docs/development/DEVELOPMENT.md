@@ -117,8 +117,14 @@ source .venv/bin/activate  # On Unix/macOS
 # Install dependencies
 uv pip install -e ".[dev]"
 
-# Run tests
+# Run tests with standard pytest
 pytest
+
+# Run tests with uv (recommended)
+uv run pytest              # Run all tests with pytest via uv
+uv run pytest -v           # Run with verbose output
+uv run python -m pytest    # Run pytest as a module
+uv run pytest --cov=agent_provocateur  # Run with coverage
 
 # Start server
 ap-server --host 127.0.0.1 --port 8000
