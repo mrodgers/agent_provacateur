@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "web-search": {
+      "command": "podman",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--env-file=.env",
+        "agent-provocateur/web-search-mcp:latest"
+      ],
+      "env": {}
+    }
+  }
+}

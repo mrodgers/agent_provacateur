@@ -10,7 +10,7 @@ Documentation related to the overall architecture and design of the system:
 - [Multi-Context Protocol](architecture/MULTICONTEXTPROTOCOL.md): Detailed explanation of the Multi-Context Protocol
 - [Project Design Specification](architecture/project_design_spec.md): Technical design specifications
 - [Project Requirements](architecture/project_prd.md): Product requirements document
-- [Frontend Architecture](architecture/frontend_architecture.md): Frontend architecture and integration
+- [Frontend Architecture](architecture/frontend_architecture.md): Frontend architecture and implementation
 
 ## API Documentation
 
@@ -18,6 +18,8 @@ Documentation for external APIs and integrations:
 
 - [BridgeIT API](api/BRIDGEIT_API.md): Integration with Cisco's BridgeIT platform
 - [Ollama API](api/OLLAMA_API.md): Integration with Ollama for local LLM support
+- [Web Search Integration](api/web_search_integration.md): Web search with multiple provider support
+- [Brave Search API](api/brave_web_search.md): Integration with Brave Search API
 
 ## Guides
 
@@ -25,6 +27,8 @@ User and developer guides for specific features:
 
 - [Document Types](guides/document_types.md): Overview of the document type system
 - [XML Verification](guides/xml_verification.md): Guide to XML document verification features
+- [Web UI Guide](guides/ui_guide.md): Guide to using the XML processing web interface
+- [Source Attribution](guides/source_attribution.md): Guide to the source attribution system
 
 ## Development
 
@@ -41,13 +45,21 @@ Documentation of implementation phases and specific components:
 - [Phase 1 Implementation](implementation/phase1_implementation.md): MCP Tools development details
 - [Phase 2 Implementation](implementation/phase2_implementation.md): A2A Communication development details
 - [Phase 2 XML Implementation](implementation/PHASE2_XML_IMPLEMENTATION.md): XML Analysis Agent implementation details
-- [Phase 3 Implementation](implementation/phase3_implementation.md): CLI Research integration for XML agent
+- [Phase 3 Implementation](implementation/phase3_implementation.md): Research integration, web UI, and source attribution
 
 ## Components
 
 Documentation of specific system components:
 
 - [XML Verification Component](components/xml_verification.md): XML document analysis and verification engine
+
+## Frontend Components
+
+Documentation for the web user interface:
+
+- [Frontend Architecture](architecture/frontend_architecture.md): Web UI design and implementation
+- [UX Design](uxd/ux_design.md): User experience design specifications
+- [Web UI Guide](guides/ui_guide.md): User guide for the XML processing interface
 
 ## Other Resources
 

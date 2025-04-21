@@ -153,6 +153,29 @@ run_workflow() {
     eval $CMD
 }
 
+# Test web search functionality
+test_web_search() {
+    ensure_tools
+    
+    # Check if the web search MCP server is running
+    if ! "$SCRIPT_DIR/start_ap.sh" status | grep -q "web_search_mcp: RUNNING"; then
+        echo "Web Search MCP server is not running. Starting it now..."
+        "$SCRIPT_DIR/start_ap.sh" start web_search_mcp
+        
+        # Give it a moment to start
+        sleep 2
+        
+        # Check again
+        if ! "$SCRIPT_DIR/start_ap.sh" status | grep -q "web_search_mcp: RUNNING"; then
+            echo "Failed to start Web Search MCP server. Please check errors."
+            return 1
+        fi
+    fi
+    
+    # Run the test script with any provided arguments
+    python "$SCRIPT_DIR/test_web_search.py" "$@"
+}
+
 # Show help information
 show_help() {
     local project_name="$(get_project_name)"
@@ -161,24 +184,27 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Available commands:"
-    echo "  setup    - Create or update virtual environment with dependencies"
-    echo "  test     - Run tests (with optional arguments for pytest)"
-    echo "  server   - Start the MCP server"
-    echo "  workflow - Run a sample agent workflow"
-    echo "  help     - Show this help information"
+    echo "  setup       - Create or update virtual environment with dependencies"
+    echo "  test        - Run tests (with optional arguments for pytest)"
+    echo "  server      - Start the MCP server"
+    echo "  workflow    - Run a sample agent workflow"
+    echo "  web-search  - Test web search functionality"
+    echo "  help        - Show this help information"
     echo ""
     echo "For service management, use the start_ap.sh script:"
     echo "  ./scripts/start_ap.sh start     - Start all services"
     echo "  ./scripts/start_ap.sh stop      - Stop all services"
     echo "  ./scripts/start_ap.sh status    - Check service status"
     echo "  ./scripts/start_ap.sh restart   - Restart services"
+    echo "  ./scripts/start_ap.sh ports     - Check for port conflicts"
     echo ""
     echo "Examples:"
     echo "  $0 setup                                  # Setup environment"
     echo "  $0 test                                   # Run all tests"
-    echo "  $0 test tests/test_main.py               # Run specific tests"
-    echo "  $0 server                                # Start server on localhost:8000"
-    echo "  $0 workflow \"research query\" --ticket=AP-1 # Run a workflow"
+    echo "  $0 test tests/test_main.py                # Run specific tests"
+    echo "  $0 server                                 # Start server on localhost:8000"
+    echo "  $0 workflow \"research query\" --ticket=AP-1  # Run a workflow"
+    echo "  $0 web-search --query \"climate change\"     # Test web search"
 }
 
 # Main command dispatcher
@@ -198,6 +224,10 @@ case "$1" in
     workflow)
         shift
         run_workflow "$@"
+        ;;
+    web-search|websearch)
+        shift
+        test_web_search "$@"
         ;;
     help|--help|-h)
         show_help

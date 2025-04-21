@@ -16,6 +16,7 @@ These scripts provide command-line tools for development, service management, an
   ./scripts/ap.sh test         # Run tests
   ./scripts/ap.sh server       # Start MCP server
   ./scripts/ap.sh workflow     # Run a sample workflow
+  ./scripts/ap.sh web-search   # Test web search functionality
   ./scripts/ap.sh help         # Show help information
   ```
 
@@ -23,6 +24,7 @@ These scripts provide command-line tools for development, service management, an
   ```bash
   ./scripts/start_ap.sh start        # Start all services
   ./scripts/start_ap.sh start mcp_server frontend  # Start specific services
+  ./scripts/start_ap.sh start web_search_mcp  # Start Web Search MCP server
   ./scripts/start_ap.sh stop         # Stop all services
   ./scripts/start_ap.sh status       # Check service status
   ./scripts/start_ap.sh status --watch # Watch status continuously
@@ -85,6 +87,22 @@ These scripts provide command-line tools for development, service management, an
 
 # Stop services when done
 ./scripts/start_ap.sh stop
+```
+
+### Web Search Workflow
+
+```bash
+# Start the Web Search MCP server
+./scripts/start_ap.sh start web_search_mcp
+
+# Test web search with a query
+./scripts/ap.sh web-search --query "latest AI developments"
+
+# Test with a specific provider
+./scripts/ap.sh web-search --query "climate change" --provider google
+
+# Stop the server when done
+./scripts/start_ap.sh stop web_search_mcp
 ```
 
 ### XML Processing Workflow

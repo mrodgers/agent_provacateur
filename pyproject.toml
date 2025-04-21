@@ -48,6 +48,10 @@ frontend = [
     "jinja2>=3.0.0",  # For templating
     "python-multipart>=0.0.5",  # For handling file uploads
 ]
+websearch = [
+    "uuid>=1.30",  # For generating unique source IDs
+    "datetime>=4.3",  # For timestamp handling
+]
 
 [tool.setuptools]
 packages = ["agent_provocateur"]

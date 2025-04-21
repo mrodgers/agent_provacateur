@@ -27,6 +27,32 @@ PROCESSES = {}
 SERVICE_INFO = {}
 STATUS_INTERVAL = 5  # seconds between status checks
 
+# Known port conflicts and solutions
+PORT_CONFLICT_INFO = {
+    3000: {
+        "common_services": ["Grafana (monitoring)", "Frontend server", "React development servers"],
+        "solutions": [
+            "Use port 3001 for the frontend server instead",
+            "Stop the monitoring service if Grafana is not needed",
+            "Change the Grafana port in monitoring/docker-compose.yml"
+        ]
+    },
+    8000: {
+        "common_services": ["MCP Server", "Django development servers", "Other backend services"],
+        "solutions": [
+            "Stop other development servers running on this port",
+            "Use a different port for the MCP server with --port option" 
+        ]
+    },
+    9090: {
+        "common_services": ["Prometheus (monitoring)", "Webpack development servers"],
+        "solutions": [
+            "Stop the monitoring service if Prometheus is not needed",
+            "Change the Prometheus port in monitoring/docker-compose.yml"
+        ]
+    }
+}
+
 
 class ServiceStatus(Enum):
     STOPPED = "STOPPED"
@@ -204,6 +230,39 @@ def start_service(service_name, services, logs_dir):
         print(f"Cannot start {service.name}: missing required commands: {dep_list}")
         service.status = ServiceStatus.DISABLED
         return False
+        
+    # Check for port conflicts if this service uses a specific port
+    if service.check_port:
+        # Skip port check for monitoring since it's expected to use multiple ports
+        port = service.check_port
+        if service.name != "monitoring" and is_port_in_use(port):
+            print(f"\nERROR: Cannot start {service.name}: port {port} is already in use by another process")
+            
+            # Provide helpful information about common port conflicts
+            if port in PORT_CONFLICT_INFO:
+                info = PORT_CONFLICT_INFO[port]
+                print(f"\nPort {port} is commonly used by: {', '.join(info['common_services'])}")
+                print("\nPossible solutions:")
+                for i, solution in enumerate(info['solutions'], 1):
+                    print(f"  {i}. {solution}")
+                    
+                # If this is the frontend server and port is 3000, provide specific help
+                if service.name == "frontend" and port == 3000:
+                    print("\nRecommended: Use the frontend server on port 3001 instead:")
+                    print("  cd frontend && python server.py --host 127.0.0.1 --port 3001")
+            else:
+                print("Try stopping the conflicting process or using a different port")
+                
+            # Provide command to check what's using the port
+            if platform.system() == "Windows":
+                print(f"\nTo see what's using port {port}, run:")
+                print(f"  netstat -ano | findstr :{port}")
+            else:
+                print(f"\nTo see what's using port {port}, run:")
+                print(f"  lsof -i :{port}")
+                
+            service.status = ServiceStatus.ERROR
+            return False
 
     # Check and start dependencies first
     for dep_name in service.depends_on:
@@ -415,11 +474,11 @@ def get_service_status(service_name, services):
             # Check specific monitoring components
             components = []
             if is_port_in_use(9090):
-                components.append("prometheus")
+                components.append("prometheus:9090")
             if is_port_in_use(9091):
-                components.append("pushgateway") 
+                components.append("pushgateway:9091") 
             if is_port_in_use(3000):
-                components.append("grafana")
+                components.append("grafana:3000")
                 
             if components:
                 component_str = ", ".join(components)
@@ -428,10 +487,21 @@ def get_service_status(service_name, services):
                 status_str += f" (Up: {format_timedelta(uptime)})"
         else:
             # Standard status for other services
-            status_str += f" (PID: {service.pid}, Up: {format_timedelta(uptime)})"
+            port_info = f", Port: {service.check_port}" if service.check_port else ""
+            status_str += f" (PID: {service.pid}{port_info}, Up: {format_timedelta(uptime)})"
     elif service.status == ServiceStatus.DISABLED:
         missing_deps = ", ".join(service.missing_dependencies)
         status_str += f" (missing: {missing_deps})"
+    elif service.status == ServiceStatus.ERROR:
+        if service.check_port and is_port_in_use(service.check_port):
+            status_str += f" (Port {service.check_port} conflict)"
+    
+    # Add warning for potential port conflicts even if service is running
+    if service.name == "frontend" and service.status == ServiceStatus.RUNNING:
+        if service.check_port == 3000 and is_port_in_use(3000):
+            # Check if both frontend and grafana might be running on 3000
+            if is_port_in_use(9090):  # If Prometheus is running, Grafana might be too
+                status_str += " ⚠️ Port conflict with Grafana possible"
     
     return status_str
 
@@ -461,6 +531,48 @@ def monitor_services(services, interval=STATUS_INTERVAL):
         time.sleep(interval)
 
 
+def check_port_conflicts():
+    """Check for port conflicts across all services and report them"""
+    conflicts = {}
+    
+    # Check common ports used by our services
+    ports_to_check = [3000, 3001, 8000, 9090, 9091]
+    
+    for port in ports_to_check:
+        if is_port_in_use(port):
+            # Try to get more information about what's using the port
+            process_info = None
+            try:
+                if platform.system() != "Windows":
+                    cmd = f"lsof -i :{port} | grep LISTEN | head -1"
+                    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    if result.stdout.strip():
+                        # Parse the lsof output to get process name and PID
+                        parts = result.stdout.strip().split()
+                        if len(parts) > 1:
+                            process_info = f"{parts[0]} (PID {parts[1]})"
+                else:
+                    cmd = f"netstat -ano | findstr :{port} | findstr LISTENING"
+                    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    if result.stdout.strip():
+                        # Parse netstat output to get PID
+                        parts = result.stdout.strip().split()
+                        if len(parts) > 4:
+                            pid = parts[4]
+                            process_info = f"PID {pid}"
+            except:
+                pass
+            
+            conflicts[port] = {
+                "in_use": True,
+                "process": process_info,
+                "common_services": PORT_CONFLICT_INFO.get(port, {}).get("common_services", ["Unknown service"]),
+                "solutions": PORT_CONFLICT_INFO.get(port, {}).get("solutions", ["Stop the conflicting process"])
+            }
+    
+    return conflicts
+
+
 def print_status_report(services):
     """Print a status report for all services"""
     print("\n=== Service Status Report ===")
@@ -470,6 +582,19 @@ def print_status_report(services):
     for service_name in sorted(services.keys()):
         status_str = get_service_status(service_name, services)
         print(status_str)
+    
+    # Check for port conflicts
+    conflicts = check_port_conflicts()
+    if conflicts:
+        print("\n=== Potential Port Conflicts ===")
+        for port, info in conflicts.items():
+            process_info = f" - Used by: {info['process']}" if info['process'] else ""
+            print(f"Port {port}: IN USE{process_info}")
+            print(f"  Commonly used by: {', '.join(info['common_services'])}")
+            
+            # If this is port 3000 and the frontend is configured to use port 3000, highlight it
+            if port == 3000 and services.get('frontend', None) and services['frontend'].check_port == 3000:
+                print("  ⚠️  WARNING: Frontend server is configured to use port 3000, which may conflict with Grafana")
     
     print("=============================\n")
 
@@ -542,11 +667,20 @@ def get_service_definitions():
             depends_on=["monitoring", "redis"],
             required_commands=[]  # No external dependencies, part of our package
         ),
+        "web_search_mcp": Service(
+            name="web_search_mcp",
+            start_cmd=f"cd {PROJECT_ROOT}/web_search_mcp && ./scripts/start.sh",
+            check_cmd="ps aux | grep -E 'node.*dist/index.js' | grep -v grep",
+            depends_on=[],  # Independent service
+            cwd=os.path.join(PROJECT_ROOT, "web_search_mcp"),
+            # Requires Node.js to be installed
+            required_commands=["node", "npm"]
+        ),
         "frontend": Service(
             name="frontend",
             start_cmd=f"cd {PROJECT_ROOT}/frontend && python server.py --host 127.0.0.1 --port 3001 --backend-url http://localhost:8000",
             check_port=3001,
-            check_cmd="ps aux | grep 'server.py' | grep -v grep",
+            check_cmd="ps aux | grep 'server.py.*port 3001' | grep -v grep",
             depends_on=["mcp_server"],
             cwd=os.path.join(PROJECT_ROOT, "frontend"),
             required_commands=[]  # No external dependencies, part of our package
@@ -587,6 +721,13 @@ def get_running_services():
             # Check for Redis
             if 'redis-server' in cmdline and not 'grep' in cmdline:
                 result['redis'] = {
+                    'pid': proc_info['pid'],
+                    'cmdline': cmdline
+                }
+                
+            # Check for Web Search MCP
+            if ('node' in cmdline and 'dist/index.js' in cmdline) or ('web-search-mcp' in cmdline):
+                result['web_search_mcp'] = {
                     'pid': proc_info['pid'],
                     'cmdline': cmdline
                 }
@@ -658,6 +799,10 @@ def main():
     restart_parser = subparsers.add_parser("restart", help="Restart services")
     restart_parser.add_argument("services", nargs="*", help="Services to restart (default: all)")
     
+    # Ports command - new command to check port conflicts
+    ports_parser = subparsers.add_parser("ports", help="Check port conflicts")
+    ports_parser.add_argument("--check", "-c", type=int, help="Check if a specific port is in use")
+    
     args = parser.parse_args()
     
     # Log directory
@@ -686,7 +831,7 @@ def main():
     monitor_thread.start()
     
     if args.command == "start":
-        service_list = args.services if args.services else ["mcp_server", "frontend"]  # Default: Just start the core services
+        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp"]  # Default: Start core services including web_search_mcp
         for service_name in service_list:
             start_service(service_name, services, logs_dir)
         print_status_report(services)
@@ -698,7 +843,7 @@ def main():
         print_status_report(services)
     
     elif args.command == "restart":
-        service_list = args.services if args.services else ["mcp_server", "frontend"]
+        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp"]
         for service_name in service_list:
             stop_service(service_name, services)
             start_service(service_name, services, logs_dir)
@@ -715,6 +860,68 @@ def main():
                 print("\nStopping status monitor...")
         else:
             print_status_report(services)
+            
+    elif args.command == "ports":
+        print("\n=== Port Conflict Checker ===")
+        
+        if args.check:
+            # Check a specific port
+            port = args.check
+            in_use = is_port_in_use(port)
+            print(f"Port {port}: {'IN USE' if in_use else 'AVAILABLE'}")
+            
+            if in_use:
+                # Try to get process information
+                try:
+                    if platform.system() != "Windows":
+                        cmd = f"lsof -i :{port} | grep LISTEN"
+                        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                        if result.stdout.strip():
+                            print("\nProcesses using this port:")
+                            print(result.stdout)
+                        else:
+                            print("Could not identify process using this port.")
+                    else:
+                        cmd = f"netstat -ano | findstr :{port} | findstr LISTENING"
+                        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                        if result.stdout.strip():
+                            print("\nProcesses using this port:")
+                            print(result.stdout)
+                        else:
+                            print("Could not identify process using this port.")
+                except Exception as e:
+                    print(f"Error checking port: {e}")
+                
+                # Check if this port is in our conflict database
+                if port in PORT_CONFLICT_INFO:
+                    info = PORT_CONFLICT_INFO[port]
+                    print(f"\nPort {port} is commonly used by: {', '.join(info['common_services'])}")
+                    print("\nPossible solutions:")
+                    for i, solution in enumerate(info['solutions'], 1):
+                        print(f"  {i}. {solution}")
+        else:
+            # Check all common ports
+            conflicts = check_port_conflicts()
+            
+            print("Common service ports status:")
+            print("---------------------------")
+            
+            for port in sorted(PORT_CONFLICT_INFO.keys()):
+                status = "IN USE" if port in conflicts else "AVAILABLE"
+                process = conflicts.get(port, {}).get("process", "")
+                process_info = f" - {process}" if process else ""
+                print(f"Port {port}: {status}{process_info}")
+                
+                if port in conflicts:
+                    info = PORT_CONFLICT_INFO[port]
+                    print(f"  Commonly used by: {', '.join(info['common_services'])}")
+                    print("  Possible solutions:")
+                    for i, solution in enumerate(info['solutions'], 1):
+                        print(f"    {i}. {solution}")
+                    print("")
+            
+            print("\nTo get detailed information about a specific port:")
+            print(f"  {sys.argv[0]} ports --check <port_number>")
     
     else:
         parser.print_help()

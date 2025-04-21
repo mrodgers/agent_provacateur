@@ -12,7 +12,10 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **LLM Integration**: Support for multiple LLM providers including local Ollama models and Cisco's BridgeIT platform
 - **Document Types**: Support for multiple document types (text, PDF, image, code, structured data, XML)
 - **Verification System**: Advanced verification for XML claims and statements with confidence scoring
+- **Source Attribution**: Comprehensive source tracking for all AI-generated content with confidence scores
+- **Web Search**: Integrated web search with multiple provider support (Brave, Google, Bing) and source attribution
 - **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
+- **Web UI**: Interactive interface for XML document processing and research
 
 ## Installation
 
@@ -38,8 +41,11 @@ pip install -e ".[dev,bridgeit]"
 # With frontend support
 pip install -e ".[dev,frontend]"
 
+# With web search support
+pip install -e ".[dev,websearch]"
+
 # With all features
-pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend]"
+pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend,websearch]"
 ```
 
 ## Service Management
@@ -47,11 +53,14 @@ pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend]"
 All Agent Provocateur services can be managed using the unified service script:
 
 ```bash
-# Start all services (monitoring, redis, mcp_server, frontend)
+# Start all services (monitoring, redis, mcp_server, frontend, web_search_mcp)
 ./scripts/start_ap.sh start
 
 # Start specific services
 ./scripts/start_ap.sh start mcp_server frontend
+
+# Start web search
+./scripts/start_ap.sh start web_search_mcp
 
 # Check status of all services
 ./scripts/start_ap.sh status
@@ -177,6 +186,7 @@ Agent Provocateur supports multiple document types:
 - Researchable node identification
 - Verification planning and execution
 - Confidence scoring for claims and statements
+- Source attribution with traceable information sources
 
 For more details on document types, see the [Document Types Guide](docs/guides/document_types.md).
 
@@ -226,8 +236,11 @@ ap-client doc doc1
 # Get PDF content
 ap-client pdf pdf1
 
-# Search web content
+# Basic web search
 ap-client search "agent protocol"
+
+# Web search with provider selection
+ap-client search "agent protocol" --provider google
 
 # Configure server latency and error rate
 ap-client config --min-latency 100 --max-latency 1000 --error-rate 0.1
@@ -288,9 +301,80 @@ ap-client research xml1 --format xml --output enriched.xml
 ap-client research xml1 --with-search
 ```
 
-For more details on XML verification and research, see:
+For more details on XML verification, research, and source attribution, see:
 - [XML Verification Guide](docs/guides/xml_verification.md)
 - [XML Research Implementation](docs/implementation/phase3_implementation.md)
+- [Source Attribution Guide](docs/guides/source_attribution.md)
+
+### Using Web Search
+
+Agent Provocateur includes integrated web search capabilities with multiple provider support and source attribution:
+
+```bash
+# Test web search functionality with the command-line tool
+./scripts/ap.sh web-search --query "artificial intelligence trends"
+
+# Test with a specific provider
+./scripts/ap.sh web-search --query "climate change research" --provider google
+
+# Limit the number of results
+./scripts/ap.sh web-search --query "quantum computing" --max-results 3
+```
+
+#### WebSearchAgent Example
+
+```python
+import asyncio
+from agent_provocateur.web_search_agent import WebSearchAgent
+from agent_provocateur.a2a_models import TaskRequest
+
+async def main():
+    # Create and start the agent
+    agent = WebSearchAgent(agent_id="web-search")
+    await agent.start()
+    
+    try:
+        # Create a search task
+        task = TaskRequest(
+            task_id="search-task",
+            intent="search",
+            payload={
+                "query": "artificial intelligence applications",
+                "max_results": 5
+            },
+            source_agent="test-agent",
+            target_agent="web-search"
+        )
+        
+        # Perform the search
+        result = await agent.handle_task_request(task)
+        
+        # Process results
+        print(f"Found {result['result_count']} results:")
+        for item in result['results']:
+            print(f"- {item['title']}")
+            print(f"  URL: {item['url']}")
+            print(f"  Confidence: {item['confidence']}")
+            print(f"  {item['snippet']}")
+            print()
+            
+        # Access source information
+        print("\nSources:")
+        for source in result['sources']:
+            print(f"- {source['title']}")
+            print(f"  Citation: {source['citation']}")
+            print(f"  Confidence: {source['confidence']}")
+            
+    finally:
+        # Clean up
+        await agent.stop()
+
+asyncio.run(main())
+```
+
+For more details on web search integration, see:
+- [Web Search Integration](docs/api/web_search_integration.md)
+- [Brave Search API](docs/api/brave_web_search.md)
 
 ### Using the LLM CLI
 

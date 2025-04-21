@@ -1,0 +1,23 @@
+# Environment variables and secrets
+.env
+.env*
+!.env.example
+
+# Node.js
+node_modules/
+dist/
+coverage/
+*.log
+npm-debug.log*
+
+# Cache directory
+cache/
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
