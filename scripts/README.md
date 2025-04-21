@@ -29,6 +29,22 @@ These scripts provide command-line tools for development, service management, an
   ./scripts/start_ap.sh status       # Check service status
   ./scripts/start_ap.sh status --watch # Watch status continuously
   ./scripts/start_ap.sh restart      # Restart services
+  ./scripts/start_ap.sh ports        # Check for port conflicts
+  ```
+
+- **`start_frontend.sh`** - Dedicated frontend server script
+  ```bash
+  ./scripts/start_frontend.sh               # Start with automatic port detection
+  ./scripts/start_frontend.sh --port 3002   # Use a specific port
+  ./scripts/start_frontend.sh --debug       # Run with detailed logging
+  ./scripts/start_frontend.sh --clean       # Clean logs before starting
+  ./scripts/start_frontend.sh --host 0.0.0.0 --backend-url http://example.com:8000  # Custom config
+  ```
+
+- **`stop_frontend.sh`** - Frontend server termination script
+  ```bash
+  ./scripts/stop_frontend.sh         # Gracefully stop frontend server
+  ./scripts/stop_frontend.sh --force # Force stop any stubborn processes
   ```
 
 ### XML Tools
@@ -86,8 +102,12 @@ These scripts provide command-line tools for development, service management, an
 # Setup environment
 ./scripts/ap.sh setup
 
-# Start services
+# Method 1: Using general service manager
 ./scripts/start_ap.sh start mcp_server frontend
+
+# Method 2: Using specialized frontend scripts (recommended for development)
+./scripts/start_ap.sh start mcp_server  # Start the backend
+./scripts/start_frontend.sh --debug     # Start frontend with debugging
 
 # Run tests
 ./scripts/ap.sh test
@@ -96,7 +116,8 @@ These scripts provide command-line tools for development, service management, an
 ./scripts/start_ap.sh status
 
 # Stop services when done
-./scripts/start_ap.sh stop
+./scripts/stop_frontend.sh     # Stop the frontend first
+./scripts/start_ap.sh stop     # Stop remaining services
 ```
 
 ### Web Search Workflow

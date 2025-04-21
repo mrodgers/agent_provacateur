@@ -60,7 +60,9 @@ The script supports the following commands:
 | `workflow` | Run a sample agent workflow | `./scripts/ap.sh workflow "query" --ticket=AP-1` |
 | `help` | Show help information | `./scripts/ap.sh help` |
 
-#### Service Management Script (`start_ap.sh`)
+#### Service Management Scripts
+
+##### Main Service Manager (`start_ap.sh`)
 
 ```bash
 # Make the script executable (if needed)
@@ -78,6 +80,31 @@ The service manager supports the following commands:
 | `stop` | Stop services | `./scripts/start_ap.sh stop` |
 | `restart` | Restart services | `./scripts/start_ap.sh restart` |
 | `status` | Check service status | `./scripts/start_ap.sh status` or `./scripts/start_ap.sh status --watch` |
+| `ports` | Check port conflicts | `./scripts/start_ap.sh ports` or `./scripts/start_ap.sh ports --check 3001` |
+
+##### Frontend Server Scripts
+
+These specialized scripts handle the frontend server with better port conflict detection and debugging:
+
+```bash
+# Start frontend server with automatic port detection
+./scripts/start_frontend.sh
+
+# Start with custom options
+./scripts/start_frontend.sh --port 3002 --host 127.0.0.1 --backend-url http://localhost:8000
+
+# Start with debug mode (shows detailed logs)
+./scripts/start_frontend.sh --debug
+
+# Clean logs and start fresh
+./scripts/start_frontend.sh --clean
+
+# Stop the frontend server
+./scripts/stop_frontend.sh
+
+# Force stop any stubborn processes
+./scripts/stop_frontend.sh --force
+```
 
 ### Common Development Examples
 
@@ -301,17 +328,34 @@ Common port conflicts:
 
 #### Resolving Port Conflicts
 
-1. **Use a different port for services**:
+1. **Use the frontend scripts with automatic port detection**:
    ```bash
-   # Start frontend on a different port
+   # Automatically detects and uses available ports
+   ./scripts/start_frontend.sh
+   
+   # Force a specific port
+   ./scripts/start_frontend.sh --port 3002
+   
+   # Debug mode for detailed port conflict information
+   ./scripts/start_frontend.sh --debug
+   ```
+
+2. **Use a different port for services**:
+   ```bash
+   # Start frontend on a different port (manual method)
    cd frontend && python server.py --host 127.0.0.1 --port 3002
    
    # Start MCP server on a different port
    ./scripts/ap.sh server --port 8001
    ```
 
-2. **Stop conflicting processes**:
+3. **Stop conflicting processes**:
    ```bash
+   # Use our scripts to safely stop services
+   ./scripts/stop_frontend.sh
+   ./scripts/start_ap.sh stop
+   
+   # Manual methods
    # On Linux/macOS
    lsof -i :3000 | grep LISTEN
    kill <PID>
