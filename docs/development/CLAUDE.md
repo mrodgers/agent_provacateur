@@ -30,6 +30,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run tests: `pytest`
 - Run tests with coverage: `pytest --cov=agent_provocateur`
 
+### Web Search MCP Server
+- Start the Web Search MCP server: `./scripts/run_web_search_mcp.sh`
+- Test web search functionality: `WEB_SEARCH_MCP_URL=http://localhost:8080 python scripts/test_web_search.py`
+- Configure the Brave API key in `web_search_mcp/.env`
+- Docker/Podman is required to run the Web Search MCP server
+
 ## Server Responsibilities During Testing
 
 For testing and debugging, follow these guidelines regarding server responsibilities:
@@ -77,6 +83,7 @@ This project implements a multi-agent research system with:
 3. A2A Messaging Layer for agent coordination
 4. Sample agent implementations for collaborative workflows
 5. Web UI for document viewing and processing
+6. Web Search integration with real search providers (Brave, Google, Bing)
 
 ## Code Style Guidelines
 - **Formatting**: 88 character line length (enforced by ruff)
@@ -93,6 +100,7 @@ This project implements a multi-agent research system with:
 - Keep code organized in the `src/agent_provocateur` directory
 - Place tests in the `tests` directory
 - Frontend code is in the `frontend` directory
+- Web Search MCP server in the `web_search_mcp` directory
 - Follow Python package best practices
 - Use type annotations for all functions
 - Update documentation when making significant changes
@@ -114,3 +122,4 @@ This project implements a multi-agent research system with:
   - Three-panel UI for document processing
   - Document upload and processing
   - XML research CLI integration
+  - Web Search with real providers integration via MCP server
