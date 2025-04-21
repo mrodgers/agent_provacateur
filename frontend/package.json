@@ -1,12 +1,21 @@
 {
   "name": "frontend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Agent Provocateur Frontend",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "python server.py --reload",
+    "start": "python server.py",
+    "start:dev": "python server.py --reload --host 127.0.0.1 --port 3001",
+    "build:api": "mkdir -p dist && cp -r src/api dist/"
   },
-  "keywords": [],
+  "keywords": [
+    "agent",
+    "xml",
+    "research",
+    "frontend"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

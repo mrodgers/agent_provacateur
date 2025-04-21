@@ -7,10 +7,34 @@
     <script>
         window.BACKEND_URL = "{{ backend_url }}";
         window.DOC_ID = "{{ doc_id }}";
+        
+        // Create enhanced debugging and monitoring
+        window.AP_DEBUG = {
+            level: 'info', // 'error', 'warn', 'info', 'debug', 'verbose'
+            api: true,     // Log API calls
+            ui: true,      // Log UI events
+            data: true     // Log data transformations
+        };
+        
+        // Create logging utility
+        window.apLogger = {
+            error: (msg, ...args) => console.error(`[AP ERROR] ${msg}`, ...args),
+            warn: (msg, ...args) => console.warn(`[AP WARN] ${msg}`, ...args),
+            info: (msg, ...args) => console.info(`[AP INFO] ${msg}`, ...args),
+            debug: (msg, ...args) => window.AP_DEBUG.level === 'debug' || window.AP_DEBUG.level === 'verbose' ? 
+                                    console.debug(`[AP DEBUG] ${msg}`, ...args) : null,
+            verbose: (msg, ...args) => window.AP_DEBUG.level === 'verbose' ? 
+                                      console.debug(`[AP VERBOSE] ${msg}`, ...args) : null,
+            api: (msg, ...args) => window.AP_DEBUG.api ? console.log(`[AP API] ${msg}`, ...args) : null,
+            ui: (msg, ...args) => window.AP_DEBUG.ui ? console.log(`[AP UI] ${msg}`, ...args) : null,
+            data: (msg, ...args) => window.AP_DEBUG.data ? console.log(`[AP DATA] ${msg}`, ...args) : null
+        };
+        
         // Add error logging
         window.onerror = function(message, source, lineno, colno, error) {
-            console.error('Error:', message, 'at', source, lineno, colno);
-            console.error(error);
+            window.apLogger.error('Unhandled error:', message, 'at', source, lineno, colno);
+            if (error) window.apLogger.error('Error details:', error);
+            
             // Display error on the page for easy debugging
             document.getElementById('error-container').innerHTML = 
                 `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
@@ -20,6 +44,65 @@
                     <pre class="mt-2 text-xs overflow-auto">${error && error.stack ? error.stack : 'No stack trace available'}</pre>
                 </div>`;
             return false;
+        };
+        
+        // Add source attribution debugging helper
+        window.sourceAttributionHelper = {
+            // Check if an entity has properly formatted sources
+            checkEntitySources: function(entity) {
+                if (!entity) return false;
+                
+                // Log entity structure
+                window.apLogger.data('Checking entity sources:', {
+                    name: entity.name || entity.content || 'Unknown entity',
+                    hasSourcesProperty: 'sources' in entity,
+                    sourcesType: entity.sources ? typeof entity.sources : 'undefined',
+                    isSourcesArray: entity.sources ? Array.isArray(entity.sources) : false,
+                    sourcesLength: entity.sources && Array.isArray(entity.sources) ? entity.sources.length : 0,
+                    entityKeys: Object.keys(entity)
+                });
+                
+                // Try to fix missing sources
+                if (entity.verification_data && entity.verification_data.sources && !entity.sources) {
+                    window.apLogger.info('Found sources in verification_data, moving to sources property');
+                    entity.sources = entity.verification_data.sources;
+                    return true;
+                }
+                
+                // Return true if sources are properly formatted
+                return entity.sources && Array.isArray(entity.sources) && entity.sources.length > 0;
+            },
+            
+            // Handle missing sources (no longer adds mock sources)
+            handleMissingSources: function(entity) {
+                if (!entity.sources || !Array.isArray(entity.sources) || entity.sources.length === 0) {
+                    window.apLogger.warn('Entity has no sources:', entity.name || entity.content || 'Unknown entity');
+                    
+                    // Add a warning flag for UI display
+                    entity.no_sources = true;
+                    entity.sources = [];
+                }
+                return entity;
+            },
+            
+            // Process all entities to verify sources
+            processEntities: function(entities) {
+                if (!entities || !Array.isArray(entities)) return entities;
+                
+                window.apLogger.info(`Processing ${entities.length} entities for source attribution`);
+                
+                return entities.map(entity => {
+                    // Check if entity has sources
+                    const hasProperSources = this.checkEntitySources(entity);
+                    
+                    // If not, handle the case properly without adding mock data
+                    if (!hasProperSources) {
+                        return this.handleMissingSources(entity);
+                    }
+                    
+                    return entity;
+                });
+            }
         };
     </script>
     <!-- Import React from CDN for initial development -->
@@ -37,6 +120,9 @@
     
     <!-- Add vkBeautify for XML formatting -->
     <script src="https://cdn.jsdelivr.net/npm/vkbeautify@0.99.3/vkbeautify.min.js"></script>
+    
+    <!-- Import API client for all pages -->
+    <script src="/static/js/api-browser.js"></script>
     <style>
         /* Add some basic styles for initial loading state */
         .loading-container {
@@ -101,5 +187,94 @@
     
     <!-- Load the appropriate script based on page -->
     <script src="/static/js/{{ page_script or 'landing.js' }}"></script>
+    
+    <!-- Source attribution enhancements -->
+    <script>
+        // Wait for the document viewer script to load and initialize
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                window.apLogger.info('Applying source attribution enhancements');
+                
+                // Fix the downloadXml function if it exists
+                if (typeof downloadXml === 'function') {
+                    // Fix download XML if needed
+                    window.apLogger.info('Found downloadXml function, enhancing it');
+                    window._originalDownloadXml = downloadXml;
+                    
+                    // Apply a safer version of the function
+                    window.downloadXml = function(xmlContent, fileName) {
+                        window.apLogger.ui('Download XML triggered', { fileName });
+                        
+                        try {
+                            // Format the XML using vkBeautify if available
+                            let formattedXml = xmlContent;
+                            if (window.vkbeautify) {
+                                try {
+                                    formattedXml = window.vkbeautify.xml(xmlContent);
+                                } catch (error) {
+                                    window.apLogger.warn('vkBeautify error, using basic formatting', error);
+                                    formattedXml = xmlContent.replace(/></g, '>\n<');
+                                }
+                            }
+                            
+                            // Create a blob for download
+                            const blob = new Blob([formattedXml], { type: 'application/xml' });
+                            const url = URL.createObjectURL(blob);
+                            
+                            // Create a download link
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fileName || 'document.xml';
+                            document.body.appendChild(a);
+                            
+                            // Trigger download
+                            a.click();
+                            
+                            // Clean up the DOM
+                            setTimeout(() => {
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }, 100);
+                            
+                            return true;
+                        } catch (error) {
+                            window.apLogger.error('Download XML failed', error);
+                            alert('Error downloading XML: ' + error.message);
+                            return false;
+                        }
+                    };
+                }
+                
+                // Patch the displayEntityResults function if it exists
+                if (typeof displayEntityResults === 'function') {
+                    window.apLogger.info('Found displayEntityResults function, adding source attribution');
+                    window._originalDisplayEntityResults = displayEntityResults;
+                    
+                    // Override the function to process entities before displaying
+                    window.displayEntityResults = function(result, processType) {
+                        // Ensure the result has proper structure
+                        if (result && result.entities && Array.isArray(result.entities)) {
+                            window.apLogger.info('Processing entities for source attribution');
+                            // Process entities to add or fix sources
+                            result.entities = window.sourceAttributionHelper.processEntities(result.entities);
+                        }
+                        
+                        // Call the original function with the enhanced result
+                        return window._originalDisplayEntityResults(result, processType);
+                    };
+                }
+                
+                // Fix download buttons in existing results
+                document.querySelectorAll('.download-xml-btn').forEach((btn, index) => {
+                    window.apLogger.info(`Enhancing existing download button ${index + 1}`);
+                    btn.addEventListener('click', function(e) {
+                        window.apLogger.ui('Download XML button clicked');
+                    });
+                });
+                
+                window.apLogger.info('Source attribution enhancements applied');
+            }, 1000); // Allow time for scripts to load
+        });
+    </script>
 </body>
 </html>

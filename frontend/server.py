@@ -52,15 +52,9 @@ if not os.path.exists(templates_dir):
     logger.error(f"Templates directory does not exist: {templates_dir}")
     sys.exit(1)
 
-# In-memory document store for fallback when backend is unreachable
-FALLBACK_DOCUMENT_STORE = {
-    "doc_sample1": {
-        "doc_id": "doc_sample1",
-        "title": "Sample XML Document",
-        "doc_type": "xml",
-        "created_at": datetime.now().isoformat()
-    }
-}
+# In-memory document store for tracking locally uploaded documents
+# No longer used for simulation - only tracks real local uploads when backend is temporarily unavailable
+FALLBACK_DOCUMENT_STORE = {}
 
 # Log file paths to help with debugging
 js_dir = os.path.join(static_dir, "js")
@@ -134,6 +128,16 @@ async def agent_management(request: Request):
             "request": request,
             "backend_url": BACKEND_API_URL,
             "page_script": "agent_management.js"
+        }
+    )
+
+@app.get("/api-test", response_class=HTMLResponse)
+async def api_test(request: Request):
+    """Render the API test page."""
+    return templates.TemplateResponse(
+        "api_test.html", {
+            "request": request,
+            "backend_url": BACKEND_API_URL
         }
     )
         
@@ -244,67 +248,65 @@ async def get_documents():
     """Proxy endpoint to get all documents from the backend API."""
     try:
         import httpx
-        try:
-            # Try to connect to the backend API
-            logger.info(f"Fetching documents from backend API: {BACKEND_API_URL}/documents")
-            async with httpx.AsyncClient() as client:
+        # Try to connect to the backend API
+        logger.info(f"Fetching documents from backend API: {BACKEND_API_URL}/documents")
+        async with httpx.AsyncClient() as client:
+            try:
                 response = await client.get(
                     f"{BACKEND_API_URL}/documents",
-                    timeout=5.0  # Reduced timeout for faster fallback
+                    timeout=5.0
                 )
                 
                 if response.status_code != 200:
                     logger.error(f"Error from backend API: {response.status_code} {response.text}")
-                    # Fall through to the fallback
-                    raise Exception(f"Backend API error: {response.status_code}")
+                    return JSONResponse(
+                        status_code=response.status_code,
+                        content={
+                            "error": f"Backend API error: {response.status_code}",
+                            "message": "Unable to retrieve documents from the backend server."
+                        }
+                    )
                 
                 # Return the documents directly
                 backend_docs = response.json()
                 logger.info(f"Retrieved {len(backend_docs)} documents from backend API")
                 return backend_docs
-                
-        except Exception as backend_error:
-            # Backend unavailable or error, check local uploads directory
-            logger.warning(f"Backend unavailable, falling back to local document store: {str(backend_error)}")
             
-            # Get documents from our local store
-            local_docs = list(FALLBACK_DOCUMENT_STORE.values())
-            
-            # Also check the uploads directory for XML files
-            uploads_dir = os.path.join(base_dir, "uploads")
-            if os.path.exists(uploads_dir):
-                xml_files = [f for f in os.listdir(uploads_dir) if f.endswith('.xml')]
-                logger.info(f"Found {len(xml_files)} XML files in uploads directory")
+            except httpx.RequestError as request_error:
+                # Connection error (backend unavailable)
+                logger.error(f"Backend connection error: {str(request_error)}")
                 
-                # Add each file as a document
-                for xml_file in xml_files:
-                    doc_id = os.path.splitext(xml_file)[0]
-                    if doc_id not in FALLBACK_DOCUMENT_STORE:
-                        # Get file creation time
-                        file_path = os.path.join(uploads_dir, xml_file)
-                        file_stat = os.stat(file_path)
-                        created_at = datetime.datetime.fromtimestamp(file_stat.st_ctime).isoformat()
-                        
-                        # Create a document entry
-                        doc_data = {
-                            "doc_id": doc_id,
-                            "title": f"Local XML: {xml_file}",
-                            "doc_type": "xml",
-                            "created_at": created_at,
-                            "local_only": True
+                # Check if we have any documents in the local store (real uploads that happened when backend was down)
+                local_docs = list(FALLBACK_DOCUMENT_STORE.values())
+                
+                if local_docs:
+                    logger.info(f"Returning {len(local_docs)} locally stored documents (backend unavailable)")
+                    # Return the real local documents with a status indicator
+                    return JSONResponse(
+                        status_code=200,
+                        content=local_docs,
+                        headers={"X-Backend-Status": "unavailable", "X-Local-Documents": "true"}
+                    )
+                else:
+                    # No documents available - backend down and no local docs
+                    return JSONResponse(
+                        status_code=503,
+                        content={
+                            "error": "Service Unavailable",
+                            "message": "Backend server is currently unavailable. Please try again later."
                         }
-                        
-                        # Add to our store for future reference
-                        FALLBACK_DOCUMENT_STORE[doc_id] = doc_data
-                        local_docs.append(doc_data)
-            
-            logger.info(f"Returning {len(local_docs)} documents from local store")
-            return local_docs
-            
+                    )
+                
     except Exception as e:
         logger.error(f"Error fetching documents: {str(e)}")
-        # In demo mode, return fallback data
-        return list(FALLBACK_DOCUMENT_STORE.values())
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Internal Server Error",
+                "message": "An error occurred while retrieving documents.",
+                "details": str(e)
+            }
+        )
 
 # Test upload endpoint
 @app.get("/test-upload-form", response_class=HTMLResponse)
@@ -646,9 +648,9 @@ async def upload_document(request: Request):
             # Store the error message for later use
             error_detail_str = str(e)
             
-            # If backend fails, determine if we should fall back to simulation
+            # Check if it's an XML parsing error
             if "no such file" in error_detail_str.lower() or "xml" in error_detail_str.lower():
-                # XML parsing error, don't simulate success
+                # XML parsing error
                 return JSONResponse(
                     status_code=400,
                     content={
@@ -658,87 +660,34 @@ async def upload_document(request: Request):
                     }
                 )
             else:
-                # Attempt to connect to backend more directly with the XML content
-                try:
-                    logger.info("Trying direct XML upload method")
-                    
-                    # Ensure the XML is valid
-                    from defusedxml import ElementTree
-                    ElementTree.fromstring(content.encode('utf-8'))
-                    
-                    # Try a direct XML upload endpoint
-                    import httpx
-                    async with httpx.AsyncClient() as client:
-                        direct_response = await client.post(
-                            f"{BACKEND_API_URL}/xml/upload",
-                            json={
-                                "xml_content": content,
-                                "title": title
-                            },
-                            timeout=10.0
-                        )
-                        
-                        if direct_response.status_code == 200 or direct_response.status_code == 201:
-                            logger.info("Direct XML upload successful")
-                            try:
-                                backend_response = await direct_response.json()
-                                backend_doc_id = backend_response.get("doc_id", doc_id)
-                            except Exception as json_err:
-                                logger.warning(f"Could not parse JSON response: {str(json_err)}")
-                                # Try to get response as text
-                                try:
-                                    text_response = await direct_response.text()
-                                    logger.info(f"Response text: {text_response}")
-                                    
-                                    # Try to parse the response text as JSON 
-                                    try:
-                                        import json
-                                        text_json = json.loads(text_response)
-                                        backend_doc_id = text_json.get("doc_id", doc_id)
-                                        logger.info(f"Successfully extracted doc_id from text response: {backend_doc_id}")
-                                    except Exception as text_json_err:
-                                        logger.warning(f"Could not parse response text as JSON: {str(text_json_err)}")
-                                        backend_doc_id = doc_id
-                                except Exception as text_err:
-                                    logger.warning(f"Could not get response text: {str(text_err)}")
-                                    backend_doc_id = doc_id
-                            
-                            # Return success response with the backend document ID
-                            return {
-                                "success": True, 
-                                "doc_id": backend_doc_id, 
-                                "title": title,
-                                "backend_id": backend_doc_id  # Include backend ID for reference
-                            }
-                        else:
-                            logger.warning(f"Direct XML upload failed with status {direct_response.status_code}")
-                            raise Exception(f"Direct upload failed: {direct_response.status_code}")
-                            
-                except Exception as direct_error:
-                    logger.error(f"Direct XML upload failed: {direct_error}")
-                    
-                    # Store the document locally but don't mark as simulated
-                    # since the file was actually uploaded successfully
-                    logger.info("Storing XML document locally as real document")
-                    
-                    # Add to our fallback document store for local access
-                    FALLBACK_DOCUMENT_STORE[doc_id] = {
-                        "doc_id": doc_id,
-                        "title": title,
-                        "doc_type": "xml",
-                        "created_at": datetime.now().isoformat(),
-                        "local_only": False,  # Mark as a real document
-                        "content": content  # Store content for local access
+                # Backend connectivity issue
+                logger.error(f"Backend server unavailable: {error_detail}")
+                
+                # Since we already saved the file and verified it's valid XML,
+                # we can store it locally for reference, but inform the user that
+                # the backend is unavailable
+                
+                # Keep track of this document for potential later synchronization
+                FALLBACK_DOCUMENT_STORE[doc_id] = {
+                    "doc_id": doc_id,
+                    "title": title,
+                    "doc_type": "xml",
+                    "created_at": datetime.now().isoformat(),
+                    "local_only": True,  # Mark as local only
+                    "pending_sync": True,  # Needs to be synced to backend when available
+                    "local_path": file_path  # Store the path for future reference
+                }
+                
+                # Return error response with information about local storage
+                return JSONResponse(
+                    status_code=503,  # Service Unavailable
+                    content={
+                        "error": "Backend Unavailable",
+                        "message": "The backend processing server is currently unavailable. Your document has been saved locally but cannot be processed until the backend is available.",
+                        "local_doc_id": doc_id,
+                        "local_only": True
                     }
-                    
-                    # Add logging about the backend API status
-                    logger.info(f"XML document has been stored locally as {doc_id}")
-                    
-                    return {
-                        "success": True, 
-                        "doc_id": doc_id, 
-                        "title": title
-                    }
+                )
         
     except Exception as e:
         logger.error(f"Error uploading document: {str(e)}", exc_info=True)

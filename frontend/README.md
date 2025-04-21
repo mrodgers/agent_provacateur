@@ -44,10 +44,21 @@ frontend/
 ├── static/              # Static assets
 │   └── js/              # JavaScript files
 │       ├── app.js       # Main React application
-│       └── main.js      # Simpler test implementation
+│       ├── landing.js   # Landing page functionality
+│       ├── document_viewer.js # Document viewer
+│       └── agent_management.js # Agent management
 ├── templates/           # HTML templates
 │   ├── index.html       # Main application template
 │   └── fallback.html    # Simple fallback page
+├── src/                 # Source code
+│   └── api/             # API client modules
+│       ├── index.js     # Base API client
+│       ├── api.js       # Main API export
+│       ├── documentApi.js # Document API endpoints
+│       ├── taskApi.js   # Task/Processing API endpoints
+│       ├── agentApi.js  # Agent API endpoints
+│       ├── sourceApi.js # Source API endpoints
+│       └── utils.js     # API utilities
 ├── server.py            # FastAPI frontend server
 └── README.md            # This file
 ```
@@ -65,6 +76,66 @@ The frontend connects to the Agent Provocateur backend API, which provides:
 - Document listing and retrieval
 - XML content and node extraction
 - Research workflow orchestration
+- Agent management
+- Source attribution
+
+#### Using the API Client
+
+The new API client modules provide a clean interface to the backend:
+
+```javascript
+// Import the API client
+import api from '../src/api/api';
+
+// Or import specific modules
+import { documentApi } from '../src/api/documentApi';
+import { taskApi } from '../src/api/taskApi';
+
+// Examples:
+// Get all documents
+const documents = await api.documents.getAllDocuments();
+
+// Upload a document
+const result = await api.documents.uploadDocument({
+  file: fileObject,
+  title: "Document Title"
+});
+
+// Process a document
+const taskResult = await api.tasks.extractEntities(documentId);
+
+// Get agent status
+const agents = await api.agents.getAllAgents();
+```
+
+See the comprehensive [API Client Guide](../docs/development/api_client_guide.md) for detailed documentation.
+
+### Testing
+
+#### API Client Testing
+
+The frontend includes comprehensive testing for the API client:
+
+1. Navigate to `/api-test` in your browser
+2. Use the test interface to run various test categories
+3. Check test results in the UI or browser console
+
+For more details, see the [API Client Testing Strategy](../docs/development/api_client_testing.md).
+
+#### Manual Testing
+
+You can also test API functionality from the browser console:
+
+```javascript
+// Run all API tests
+runApiTests();
+
+// Test specific API module
+runDocumentApiTests();
+
+// Use the API client directly
+apApi.documents.getAllDocuments().then(docs => console.log(docs));
+```
 
 ### Debugging
 
@@ -73,7 +144,8 @@ If you encounter issues:
 2. Use the fallback page at `/fallback` for basic functionality
 3. Make sure both the frontend and backend servers are running
 4. Check the server logs for any backend errors
-5. Use our debugging scripts for detailed diagnostics:
+5. Run the API tests at `/api-test` to identify specific issues
+6. Use our debugging scripts for detailed diagnostics:
 
 ```bash
 # Run the frontend with debugging enabled

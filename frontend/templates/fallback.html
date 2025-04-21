@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent Provocateur - Fallback Page</title>
+    <script>
+        window.BACKEND_URL = "{{ backend_url }}";
+        
+        // Create logging utility for debugging
+        window.apLogger = {
+            error: (msg, ...args) => console.error(`[AP ERROR] ${msg}`, ...args),
+            warn: (msg, ...args) => console.warn(`[AP WARN] ${msg}`, ...args),
+            info: (msg, ...args) => console.info(`[AP INFO] ${msg}`, ...args),
+            debug: (msg, ...args) => console.debug(`[AP DEBUG] ${msg}`, ...args),
+            api: (msg, ...args) => console.log(`[AP API] ${msg}`, ...args)
+        };
+    </script>
+    <!-- Import API client -->
+    <script src="/static/js/api-browser.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -86,7 +100,7 @@
             </div>
             
             <div class="card">
-                <h2>XML Research</h2>
+                <h2>Technical Research</h2>
                 <p>Extract entities and perform research on XML documents.</p>
                 <ul>
                     <li>Entity extraction</li>
