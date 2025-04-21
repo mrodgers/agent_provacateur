@@ -38,6 +38,17 @@ activate_venv() {
     fi
 }
 
+# Get container engine (docker or podman)
+get_container_engine() {
+    if command -v podman &> /dev/null; then
+        echo "podman"
+    elif command -v docker &> /dev/null; then
+        echo "docker"
+    else
+        echo ""
+    fi
+}
+
 # Ensure a Python package is installed in the virtual environment
 ensure_package() {
     local package_name="$1"

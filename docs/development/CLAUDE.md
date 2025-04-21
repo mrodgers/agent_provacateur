@@ -31,8 +31,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run tests with coverage: `pytest --cov=agent_provocateur`
 
 ### Web Search MCP Server
-- Start the Web Search MCP server: `./scripts/run_web_search_mcp.sh`
-- Test web search functionality: `WEB_SEARCH_MCP_URL=http://localhost:8080 python scripts/test_web_search.py`
+- Start the Web Search MCP server: `./scripts/ap_web_search.sh start`
+- Stop the Web Search MCP server: `./scripts/ap_web_search.sh stop`
+- Check Web Search MCP status: `./scripts/ap_web_search.sh status`
+- Test web search functionality: `./scripts/ap_web_search.sh test --query=AI`
+- Start full stack with Web Search: `./scripts/ap_web_search.sh full-stack`
 - Configure the Brave API key in `web_search_mcp/.env`
 - Docker/Podman is required to run the Web Search MCP server
 
