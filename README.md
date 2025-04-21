@@ -13,6 +13,7 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **Document Types**: Support for multiple document types (text, PDF, image, code, structured data, XML)
 - **Verification System**: Advanced verification for XML claims and statements with confidence scoring
 - **Source Attribution**: Comprehensive source tracking for all AI-generated content with confidence scores
+- **Goal Refinement**: Intelligent breaking down of high-level goals into structured tasks mapped to agent capabilities
 - **Web Search**: Integrated web search with multiple provider support (Brave, Google, Bing) and source attribution
 - **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
 - **Web UI**: Interactive interface for XML document processing and research
@@ -388,6 +389,77 @@ asyncio.run(main())
 For more details on web search integration, see:
 - [Web Search Integration](docs/api/web_search_integration.md)
 - [Brave Search API](docs/api/brave_web_search.md)
+
+### Using the Goal Refiner
+
+The Goal Refiner component breaks down high-level user goals into structured tasks and maps them to specific agent capabilities:
+
+```bash
+# Process a high-level research goal using the Goal Refiner CLI
+./scripts/goal_refiner_cli.py "Research quantum computing and extract key technologies"
+
+# Process a goal with document reference
+./scripts/goal_refiner_cli.py "Analyze XML document and verify claims" --doc-id xml1
+
+# Customize search parameters
+./scripts/goal_refiner_cli.py "Search for climate change solutions" --max-results 10 --provider google
+
+# Output results as JSON for programmatic use
+./scripts/goal_refiner_cli.py "Compare machine learning frameworks" --json
+```
+
+#### GoalRefiner API Example
+
+```python
+import asyncio
+from agent_provocateur.research_supervisor_agent import ResearchSupervisorAgent
+from agent_provocateur.a2a_messaging import InMemoryMessageBroker
+from agent_provocateur.a2a_models import TaskRequest
+
+async def main():
+    # Create and start the supervisor agent
+    broker = InMemoryMessageBroker()
+    supervisor = ResearchSupervisorAgent("research_supervisor_agent", broker)
+    await supervisor.start()
+    
+    try:
+        # Create a goal processing task
+        task = TaskRequest(
+            task_id="goal_task",
+            intent="process_goal",
+            payload={
+                "goal": "Research quantum computing applications in cryptography",
+                "options": {
+                    "max_results": 5,
+                    "search_provider": "brave"
+                }
+            },
+            source_agent="test-agent",
+            target_agent="research_supervisor_agent"
+        )
+        
+        # Process the goal
+        result = await supervisor.handle_process_goal(task)
+        
+        # Display the task breakdown
+        print(f"Workflow ID: {result['workflow_id']}")
+        print(f"Task count: {result['task_count']}")
+        
+        # Display each task and its agent assignment
+        for i, task in enumerate(supervisor.workflows[result['workflow_id']]['tasks']):
+            print(f"\nTask {i+1}: {task.get('description')}")
+            print(f"Agent: {task.get('assigned_agent')}")
+            print(f"Capabilities: {', '.join(task.get('capabilities', []))}")
+    
+    finally:
+        # Clean up
+        await supervisor.stop()
+
+asyncio.run(main())
+```
+
+For more details on goal refinement, see:
+- [Goal Refinement](docs/development/goal_refinements.md)
 
 ### Using the LLM CLI
 

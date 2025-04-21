@@ -48,6 +48,16 @@ These scripts provide command-line tools for development, service management, an
   ./scripts/xml_agent_cli.py verify xml1              # Verify XML document
   ```
 
+### Goal Refinement Tools
+
+- **`goal_refiner_cli.py`** - Goal Refinement CLI
+  ```bash
+  ./scripts/goal_refiner_cli.py "Research machine learning and extract entities from document"
+  ./scripts/goal_refiner_cli.py "Search for information about AI" --max-results 10
+  ./scripts/goal_refiner_cli.py "Analyze XML document" --doc-id xml1
+  ./scripts/goal_refiner_cli.py "Research quantum computing" --provider google --json
+  ```
+
 ## Utility Files
 
 - **`utils.sh`** - Shared Bash functions for scripts
