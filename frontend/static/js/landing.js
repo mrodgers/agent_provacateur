@@ -100,9 +100,9 @@ async function initLandingPage(rootElement) {
                                     </div>
                                 </div>
                                 <div class="mt-6">
-                                    <button id="adminConsoleBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                                        Coming Soon
-                                    </button>
+                                    <a href="/agent-management" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                                        Open Agent Management
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -234,10 +234,6 @@ function setupLandingPageListeners() {
     
     // Handle "Coming Soon" buttons
     document.getElementById('xmlResearchBtn').addEventListener('click', function() {
-        alert('This feature is coming soon!');
-    });
-    
-    document.getElementById('adminConsoleBtn').addEventListener('click', function() {
         alert('This feature is coming soon!');
     });
     
