@@ -4,14 +4,39 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Document Viewer initialized');
     
+    // Define global debug level
+    window.AP_DEBUG = {
+        level: 'info', // 'error', 'warn', 'info', 'debug', 'verbose'
+        api: true,     // Log API calls
+        ui: true,      // Log UI events
+        data: true     // Log data transformations
+    };
+    
+    // Enhance console logging with app-specific prefixes
+    const logger = {
+        error: (msg, ...args) => console.error(`[AP ERROR] ${msg}`, ...args),
+        warn: (msg, ...args) => console.warn(`[AP WARN] ${msg}`, ...args),
+        info: (msg, ...args) => console.info(`[AP INFO] ${msg}`, ...args),
+        debug: (msg, ...args) => window.AP_DEBUG.level !== 'error' && window.AP_DEBUG.level !== 'warn' && 
+                                 window.AP_DEBUG.level !== 'info' && console.debug(`[AP DEBUG] ${msg}`, ...args),
+        verbose: (msg, ...args) => window.AP_DEBUG.level === 'verbose' && console.debug(`[AP VERBOSE] ${msg}`, ...args),
+        api: (msg, ...args) => window.AP_DEBUG.api && console.log(`[AP API] ${msg}`, ...args),
+        ui: (msg, ...args) => window.AP_DEBUG.ui && console.log(`[AP UI] ${msg}`, ...args),
+        data: (msg, ...args) => window.AP_DEBUG.data && console.log(`[AP DATA] ${msg}`, ...args)
+    };
+    
+    // Make logger available globally
+    window.apLogger = logger;
+    
     // Initialize the application if the root element exists
     const rootElement = document.getElementById('app');
     if (rootElement) {
+        logger.info('Initializing document viewer application');
         initDocumentViewer(rootElement);
         
         // Check if we have a document ID passed in the URL
         if (window.DOC_ID) {
-            console.log('Document ID from URL:', window.DOC_ID);
+            logger.info('Document ID from URL:', window.DOC_ID);
             
             // Set a timeout to allow the select element to be populated
             setTimeout(() => {
@@ -24,11 +49,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (matchingOption) {
                         selectElement.value = window.DOC_ID;
                         // Trigger the document load
+                        logger.ui('Auto-loading document:', window.DOC_ID);
                         document.getElementById('loadDocumentBtn').click();
+                    } else {
+                        logger.warn(`Document ID from URL (${window.DOC_ID}) not found in available documents`);
                     }
+                } else {
+                    logger.error('Document selector not found in DOM');
                 }
             }, 1000);
         }
+    } else {
+        logger.error('Root element #app not found in DOM');
     }
 });
 
@@ -109,7 +141,34 @@ function initDocumentViewer(rootElement) {
                     <div class="mt-4 bg-white rounded-lg shadow-md p-4 min-h-[200px]">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-lg font-medium text-gray-900">Processing & Results</h2>
-                            <div>
+                            <div class="flex gap-2">
+                                <div class="dropdown relative" id="processingDropdown">
+                                    <button id="processingTypeBtn" class="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center">
+                                        <span>Processing Type</span>
+                                        <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </button>
+                                    <div class="dropdown-menu hidden absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10">
+                                        <a href="#" data-type="entity-extraction" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Extract Entities</a>
+                                        <div class="sub-menu">
+                                            <a href="#" data-type="term-research" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 relative">
+                                                Research Terms
+                                                <span class="absolute right-2 top-1/2 transform -translate-y-1/2">➤</span>
+                                            </a>
+                                            <div class="dropdown-submenu hidden absolute left-full top-0 mt-0 -ml-1 w-48 bg-white rounded-md shadow-lg z-20">
+                                                <div class="py-1 text-xs text-gray-700 px-3">Search Provider:</div>
+                                                <a href="#" data-type="term-research" data-provider="brave" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Brave (Default)</a>
+                                                <a href="#" data-type="term-research" data-provider="google" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Google</a>
+                                                <a href="#" data-type="term-research" data-provider="bing" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Bing</a>
+                                                <div class="border-t my-1"></div>
+                                                <a href="#" data-type="term-research" data-provider="none" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">No Web Search</a>
+                                            </div>
+                                        </div>
+                                        <a href="#" data-type="structure-validation" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Validate Structure</a>
+                                        <a href="#" data-type="xml-enrichment" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Enrich XML</a>
+                                    </div>
+                                </div>
                                 <button id="startProcessingBtn" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 opacity-50" disabled>
                                     Start Processing
                                 </button>
@@ -125,8 +184,19 @@ function initDocumentViewer(rootElement) {
             <footer class="bg-white border-t border-gray-200 py-4">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <p class="text-center text-sm text-gray-500">
-                        Agent Provocateur • XML Processing Interface
+                        Agent Provocateur • Writer's Research Assistant
                     </p>
+                    <div class="flex justify-center mt-2">
+                        <div id="system-info" class="text-xs text-gray-400 flex items-center space-x-4">
+                            <span id="version-info">Version: 0.1.0</span>
+                            <span class="text-gray-300">|</span>
+                            <span id="ui-port">UI Port: <span class="font-mono">${window.location.port || '80'}</span></span>
+                            <span class="text-gray-300">|</span>
+                            <span id="backend-url">API: <span class="font-mono">${window.BACKEND_URL}</span></span>
+                            <span class="text-gray-300">|</span>
+                            <button id="check-ports-btn" class="text-indigo-400 hover:text-indigo-600 transition">Check Ports</button>
+                        </div>
+                    </div>
                 </div>
             </footer>
         </div>
@@ -143,19 +213,15 @@ async function initializeDocumentSelector() {
     const supervisorChat = document.getElementById('supervisorChat');
     
     try {
-        // Fetch the list of documents from the backend
+        // Fetch the list of documents using API client
         documentViewer.innerHTML = '<p>Loading documents...</p>';
         
         // Add a message to the supervisor chat
         addSupervisorMessage("I'm connecting to the database to find available XML documents.");
         
-        const response = await fetch(`${window.BACKEND_URL}/documents`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch documents: ${response.status} ${response.statusText}`);
-        }
-        
-        const documents = await response.json();
-        console.log("Documents loaded:", documents);
+        // Use API client to fetch documents
+        const documents = await window.apApi.documents.getAllDocuments();
+        console.log("Documents loaded with API client:", documents);
         
         // Filter to get only XML documents
         const xmlDocuments = documents.filter(doc => doc.doc_type === 'xml');
@@ -186,8 +252,20 @@ async function initializeDocumentSelector() {
         
     } catch (error) {
         console.error('Error initializing document selector:', error);
-        documentViewer.innerHTML = `<p class="text-red-500">Error loading documents: ${error.message}</p>`;
-        addSupervisorMessage(`I encountered an error while trying to fetch documents: ${error.message}. Please check that the backend server is running.`);
+        
+        // Format the error using API utils if available
+        const formattedError = window.apiUtils?.formatApiError 
+            ? window.apiUtils.formatApiError(error, 'Failed to load documents')
+            : { message: error.message || 'Unknown error loading documents' };
+        
+        documentViewer.innerHTML = `<p class="text-red-500">Error loading documents: ${formattedError.message}</p>`;
+        
+        // Provide more context in the supervisor message based on error type
+        if (formattedError.isNetworkError || formattedError.status === 0) {
+            addSupervisorMessage(`I couldn't connect to the backend server. Please check that it's running and try again.`);
+        } else {
+            addSupervisorMessage(`I encountered an error while trying to fetch documents: ${formattedError.message}. Please check the backend server status.`);
+        }
     }
 }
 
@@ -260,6 +338,216 @@ function setupEventListeners() {
             supervisorInput.value = '';
         }
     });
+    
+    // Setup Processing Type dropdown
+    setupProcessingTypeDropdown();
+    
+    // Setup port checker button
+    document.getElementById('check-ports-btn').addEventListener('click', function() {
+        checkSystemPorts();
+    });
+}
+
+// Function to check system ports and display results
+async function checkSystemPorts() {
+    try {
+        // Create a modal to display port information
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+        modal.innerHTML = `
+            <div class="absolute inset-0 bg-black bg-opacity-30" id="port-modal-backdrop"></div>
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full relative z-10 m-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">System Port Status</h3>
+                    <button id="port-modal-close" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="port-status-content" class="mb-4">
+                    <p class="text-gray-500">Checking port status...</p>
+                </div>
+                <div class="mt-4 text-xs text-gray-500">
+                    <p>Common ports used by Agent Provocateur:</p>
+                    <ul class="list-disc pl-5 mt-1 space-y-1">
+                        <li>3000: Grafana dashboard (monitoring)</li>
+                        <li>3001: Frontend UI server</li>
+                        <li>8000: MCP Server API</li>
+                        <li>9090: Prometheus metrics</li>
+                        <li>9091: Pushgateway</li>
+                        <li>6379: Redis</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Add event listeners for closing the modal
+        document.getElementById('port-modal-backdrop').addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        document.getElementById('port-modal-close').addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        
+        // Fetch port status information using the API client
+        try {
+            const currentPort = window.location.port || '80';
+            const portStatusContent = document.getElementById('port-status-content');
+            
+            // Use the API client to get system information
+            const systemInfo = await window.apApi.getSystemInfo();
+            console.log('System info from API client:', systemInfo);
+            
+            // Build the status display
+            let portsHtml = '';
+            if (systemInfo.ports) {
+                // Sort the ports to display in order
+                const sortedPorts = Object.entries(systemInfo.ports).sort((a, b) => a[0] - b[0]);
+                
+                portsHtml = `
+                    <div class="mt-4 border rounded p-3 bg-gray-50 text-sm">
+                        <h4 class="font-medium mb-2">Port Status</h4>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${sortedPorts.map(([port, info]) => `
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2 h-2 rounded-full ${info.in_use ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                                    <span class="font-mono">${port}</span>
+                                    <span class="text-gray-600">${info.service}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Update the content
+            portStatusContent.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex flex-col border-b pb-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Version</span>
+                            <span class="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                                ${systemInfo.version || '0.1.0'}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Agent Provocateur system version
+                        </div>
+                    </div>
+                
+                    <div class="flex items-center justify-between border-b pb-2">
+                        <span class="font-medium">Frontend UI</span>
+                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                            Connected (Port ${currentPort})
+                        </span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between border-b pb-2">
+                        <span class="font-medium">Backend API</span>
+                        <span class="bg-${systemInfo.backend_status === 'available' ? 'green' : 'red'}-100 
+                               text-${systemInfo.backend_status === 'available' ? 'green' : 'red'}-800 px-2 py-1 rounded text-xs">
+                            ${systemInfo.backend_status === 'available' ? 'Available' : 'Unavailable'}
+                        </span>
+                    </div>
+                    
+                    ${portsHtml}
+                    
+                    <div class="mt-4">
+                        <p class="text-sm">If you're experiencing connection issues:</p>
+                        <ol class="list-decimal pl-5 mt-2 text-sm space-y-1">
+                            <li>Ensure the backend server is running (port 8000)</li>
+                            <li>Check for port conflicts with Grafana (port 3000)</li>
+                            <li>Use explicit port URLs in the browser: http://localhost:3001</li>
+                            <li>See <code class="bg-gray-100 px-1 py-0.5 rounded">docs/development/DEVELOPMENT.md</code> for more troubleshooting</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+            
+        } catch (error) {
+            const portStatusContent = document.getElementById('port-status-content');
+            portStatusContent.innerHTML = `
+                <div class="text-red-500">
+                    Error checking port status: ${error.message}
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('Error showing port information:', error);
+    }
+}
+
+function setupProcessingTypeDropdown() {
+    const dropdown = document.getElementById('processingDropdown');
+    const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+    const dropdownButton = document.getElementById('processingTypeBtn');
+    const submenu = dropdown.querySelector('.sub-menu');
+    const submenuContent = dropdown.querySelector('.dropdown-submenu');
+    
+    // Toggle dropdown menu on button click
+    dropdownButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        dropdownMenu.classList.toggle('hidden');
+    });
+    
+    // Handle submenu hover
+    if (submenu) {
+        submenu.addEventListener('mouseenter', function() {
+            submenuContent.classList.remove('hidden');
+        });
+        
+        submenu.addEventListener('mouseleave', function() {
+            submenuContent.classList.add('hidden');
+        });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+            dropdownMenu.classList.add('hidden');
+            if (submenuContent) {
+                submenuContent.classList.add('hidden');
+            }
+        }
+    });
+    
+    // Handle processing type selection
+    dropdownMenu.querySelectorAll('a').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Skip if this is the parent "Research Terms" menu item that opens the submenu
+            if (this.querySelector('.absolute') && this.classList.contains('relative')) {
+                return;
+            }
+            
+            const processType = this.getAttribute('data-type');
+            const provider = this.getAttribute('data-provider');
+            let buttonText = this.textContent.trim();
+            
+            // Create full button text for research with provider
+            if (processType === 'term-research' && provider) {
+                if (provider === 'none') {
+                    buttonText = 'Research Terms (No Web Search)';
+                } else {
+                    buttonText = `Research Terms (${provider.charAt(0).toUpperCase() + provider.slice(1)})`;
+                }
+            }
+            
+            // Update button text and processing type
+            dropdownButton.querySelector('span').textContent = buttonText;
+            dropdownMenu.classList.add('hidden');
+            
+            // Update processing type and button text
+            updateProcessingType(processType, provider);
+            
+            // Add message to supervisor chat
+            addSupervisorMessage(`I'll help you with ${buttonText.toLowerCase()}. Click the "${buttonText.split('(')[0].trim()}" button when you're ready to begin.`);
+        });
+    });
 }
 
 async function loadSelectedDocument() {
@@ -283,31 +571,47 @@ async function loadDocument(docId) {
         documentViewer.innerHTML = '<p>Loading document...</p>';
         addSupervisorMessage(`I'm loading document "${docId}" for analysis...`);
         
-        // Fetch XML document details first
-        let docInfo;
+        // Use API client to fetch document information in parallel
+        let docInfo, xmlContent, nodes;
+        
         try {
-            const docInfoResponse = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml`);
-            if (!docInfoResponse.ok) {
-                throw new Error(`Failed to fetch document info: ${docInfoResponse.status}`);
-            }
-            docInfo = await docInfoResponse.json();
-            console.log("Document info:", docInfo);
+            // Setup parallel requests using Promise.all
+            const [docInfoResult, xmlContentResult, nodesResult] = await Promise.all([
+                // Get document XML metadata
+                window.apApi.documents.getDocumentXml(docId).catch(err => {
+                    console.warn("Could not load document metadata:", err);
+                    return null;
+                }),
+                
+                // Get document XML content
+                window.apApi.documents.getDocumentXmlContent(docId),
+                
+                // Get document nodes
+                window.apApi.documents.getDocumentNodes(docId).catch(err => {
+                    console.warn("Could not load document nodes:", err);
+                    return [];
+                })
+            ]);
+            
+            // Assign results
+            docInfo = docInfoResult;
+            xmlContent = xmlContentResult;
+            nodes = nodesResult || [];
+            
+            console.log("Document loaded with API client:", {
+                hasMetadata: !!docInfo,
+                contentLength: xmlContent ? xmlContent.length : 0,
+                nodeCount: nodes ? nodes.length : 0
+            });
+            
         } catch (error) {
-            console.error("Error fetching document info:", error);
-            addSupervisorMessage(`I couldn't retrieve the document metadata, but I'll try to get the content.`);
+            // Handle critical errors (content must be available)
+            console.error("Critical error loading document:", error);
+            throw new Error(`Failed to load document content: ${error.message}`);
         }
-        
-        // Fetch document content
-        const contentResponse = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml/content`);
-        if (!contentResponse.ok) {
-            throw new Error(`Failed to fetch document content: ${contentResponse.status}`);
-        }
-        
-        let xmlContent = await contentResponse.text();
-        console.log("XML content fetched, length:", xmlContent.length);
         
         // Check for JSON-encoded XML response (which happens sometimes with API responses)
-        if (xmlContent.startsWith('"') && xmlContent.endsWith('"')) {
+        if (typeof xmlContent === 'string' && xmlContent.startsWith('"') && xmlContent.endsWith('"')) {
             try {
                 // Try to parse it as JSON-encoded string
                 xmlContent = JSON.parse(xmlContent);
@@ -317,7 +621,10 @@ async function loadDocument(docId) {
         }
         
         // Format the XML content with proper indentation and syntax highlighting
-        const formattedXml = formatXml(xmlContent);
+        const formattedXml = window.apiUtils?.formatXmlForDisplay 
+            ? window.apiUtils.formatXmlForDisplay(xmlContent)
+            : formatXml(xmlContent);
+            
         documentViewer.innerHTML = `
             <pre class="language-xml" style="max-height: 400px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; tab-size: 2;"><code>${formattedXml}</code></pre>
         `;
@@ -325,20 +632,8 @@ async function loadDocument(docId) {
         // Apply syntax highlighting
         Prism.highlightAllUnder(documentViewer);
         
-        // Get researchable nodes, if available
-        let nodes = [];
-        let nodeCount = 0;
-        
-        try {
-            const nodesResponse = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml/nodes`);
-            if (nodesResponse.ok) {
-                nodes = await nodesResponse.json();
-                nodeCount = nodes.length;
-                console.log("Researchable nodes:", nodes);
-            }
-        } catch (error) {
-            console.error("Error fetching researchable nodes:", error);
-        }
+        // Count nodes if available
+        const nodeCount = nodes ? nodes.length : 0;
         
         // Add a document info section
         if (docInfo) {
@@ -396,8 +691,20 @@ async function loadDocument(docId) {
         
     } catch (error) {
         console.error('Error loading document:', error);
-        documentViewer.innerHTML = `<p class="text-red-500">Error loading document: ${error.message}</p>`;
-        addSupervisorMessage(`I encountered an error while loading document "${docId}": ${error.message}`);
+        
+        // Format the error using API utils if available
+        const formattedError = window.apiUtils?.formatApiError 
+            ? window.apiUtils.formatApiError(error, 'Failed to load document')
+            : { message: error.message || 'Unknown error loading document' };
+        
+        documentViewer.innerHTML = `<p class="text-red-500">Error loading document: ${formattedError.message}</p>`;
+        
+        // Provide more context in the supervisor message based on error type
+        if (formattedError.isNetworkError || formattedError.status === 0) {
+            addSupervisorMessage(`I couldn't connect to the backend server while trying to load document "${docId}". Please check that it's running and try again.`);
+        } else {
+            addSupervisorMessage(`I encountered an error while loading document "${docId}": ${formattedError.message}`);
+        }
     }
 }
 
@@ -600,64 +907,83 @@ async function startProcessing() {
         processingSteps.innerHTML += `<p>✓ Initialized processing</p>`;
         processingSteps.innerHTML += `<p>◽ Analyzing XML structure...</p>`;
         
-        // Create task request payload for analyze_xml
-        const analyzePayload = {
-            task_id: `analyze_${Date.now()}`,
-            source_agent: "frontend",
-            target_agent: "xml_agent",
-            intent: "analyze_xml",
-            payload: {
-                doc_id: docId
-            }
-        };
-        
-        // Try to call the task API endpoint, but fallback to mock implementation if it fails
+        // Use the API client to create and execute the analysis task
         let analysisResult;
         
         try {
-            // Make API call to analyze XML document
-            const analyzeResponse = await fetch(`${window.BACKEND_URL}/task`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(analyzePayload)
+            // Create a task to analyze the XML structure using the task API client
+            const analyzeTask = await window.apApi.tasks.createTask({
+                intent: "analyze_xml",
+                target_agent: "xml_agent",
+                payload: {
+                    doc_id: docId
+                }
             });
             
-            if (analyzeResponse.ok) {
-                analysisResult = await analyzeResponse.json();
-                console.log("Document analysis:", analysisResult);
+            console.log("Analysis task created:", analyzeTask);
+            
+            // If we have a task ID, we can consider this a success
+            if (analyzeTask.task_id) {
+                // In a real implementation with async tasks, we would poll for the result
+                // For now, we'll use the task response directly since our backend is synchronous
+                analysisResult = analyzeTask;
+                console.log("Document analysis result:", analysisResult);
             } else {
-                console.warn(`Task API endpoint not available: ${analyzeResponse.status}. Using fallback.`);
-                throw new Error("Task API endpoint not available");
+                throw new Error("Failed to create analysis task - no task ID returned");
             }
         } catch (error) {
-            // Fallback: simulate analysis based on document info
-            console.warn("Falling back to mock implementation:", error);
+            console.warn("API client task creation failed:", error);
             
-            // Get document info to at least get some real data
-            const docInfoResponse = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml`);
-            if (!docInfoResponse.ok) {
-                throw new Error(`Failed to fetch document info: ${docInfoResponse.status}`);
+            // Format the error using API utils if available
+            const formattedError = window.apiUtils?.formatApiError 
+                ? window.apiUtils.formatApiError(error, 'Failed to analyze document')
+                : { message: error.message || 'Unknown error during analysis' };
+            
+            // If this is a network or backend error, we'll create a fallback analysis
+            if (formattedError.isNetworkError || formattedError.status === 0) {
+                console.warn("Backend unavailable - using fallback implementation");
+                
+                // Attempt to get document info to build a fallback result
+                try {
+                    // Try to use the API client to get document info
+                    const docInfo = await window.apApi.documents.getDocumentById(docId);
+                    
+                    // Create simulated analysis result based on available info
+                    analysisResult = {
+                        doc_id: docId,
+                        title: docInfo.title || "Document",
+                        analysis: {
+                            verification_needed: true,
+                            priority: "medium",
+                            reason: "Offline analysis (backend unavailable)",
+                            estimated_time_minutes: 15
+                        },
+                        node_count: docInfo.researchable_nodes?.length || 0,
+                        root_element: docInfo.root_element || "unknown"
+                    };
+                    
+                    console.log("Fallback document analysis:", analysisResult);
+                } catch (fallbackError) {
+                    // If we can't even get document info, create a minimal fallback
+                    console.error("Failed to create even a fallback analysis:", fallbackError);
+                    
+                    analysisResult = {
+                        doc_id: docId,
+                        title: "Unknown Document",
+                        analysis: {
+                            verification_needed: true,
+                            priority: "medium",
+                            reason: "Minimal fallback (backend unavailable)",
+                            estimated_time_minutes: 15
+                        },
+                        node_count: 0,
+                        root_element: "unknown"
+                    };
+                }
+            } else {
+                // If it's a specific API error (not a network issue), rethrow
+                throw error;
             }
-            
-            const docInfo = await docInfoResponse.json();
-            
-            // Create simulated analysis result
-            analysisResult = {
-                doc_id: docId,
-                title: docInfo.title || "Document",
-                analysis: {
-                    verification_needed: true,
-                    priority: "medium",
-                    reason: "Simulated analysis",
-                    estimated_time_minutes: 15
-                },
-                node_count: docInfo.researchable_nodes?.length || 0,
-                root_element: docInfo.root_element || "unknown"
-            };
-            
-            console.log("Simulated document analysis:", analysisResult);
         }
         
         processingSteps.innerHTML += `<p>✓ XML structure analyzed</p>`;
@@ -689,6 +1015,16 @@ async function startProcessing() {
                 taskIntent = "extract_entities";
         }
         
+        // Add optional parameters based on process type
+        if (processType === 'term-research') {
+            // Include web search options for term research
+            taskPayload.options = {
+                use_web_search: true,
+                search_provider: 'brave',
+                max_entities: 10
+            };
+        }
+        
         // Prepare task payload
         const taskPayloadObj = {
             task_id: `task_${Date.now()}`,
@@ -698,95 +1034,107 @@ async function startProcessing() {
             payload: taskPayload
         };
         
-        // Try to call the task API endpoint, but fallback to mock implementation if it fails
+        // Use the API client to process the document
         let taskResult;
         
         try {
-            // Make API call to process the document
-            const taskResponse = await fetch(`${window.BACKEND_URL}/task`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(taskPayloadObj)
-            });
-            
-            if (taskResponse.ok) {
-                taskResult = await taskResponse.json();
-                console.log("Task result:", taskResult);
-            } else {
-                console.warn(`Task API endpoint not available: ${taskResponse.status}. Using fallback.`);
-                throw new Error("Task API endpoint not available");
+            // Use appropriate API client task methods based on the process type
+            switch (processType) {
+                case 'entity-extraction':
+                    // Use the dedicated entity extraction method
+                    taskResult = await window.apApi.tasks.extractEntities(docId);
+                    break;
+                    
+                case 'term-research':
+                    // Use the research entities method with web search options
+                    taskResult = await window.apApi.tasks.researchEntities(docId, {
+                        use_web_search: true,
+                        search_provider: taskPayload.options?.search_provider || 'brave'
+                    });
+                    break;
+                    
+                case 'structure-validation':
+                    // Use the structure validation method
+                    taskResult = await window.apApi.tasks.validateStructure(docId);
+                    break;
+                    
+                case 'xml-enrichment':
+                    // Use entity extraction first (this would be followed by enrichment in a real implementation)
+                    taskResult = await window.apApi.tasks.extractEntities(docId);
+                    break;
+                    
+                default:
+                    // Fallback to generic task creation
+                    taskResult = await window.apApi.tasks.createTask({
+                        intent: taskIntent,
+                        target_agent: taskPayload.target_agent || 'xml_agent',
+                        payload: taskPayload
+                    });
             }
+            
+            console.log(`Task result from API client (${processType}):`, taskResult);
+            
         } catch (error) {
-            // Fallback: create simulated results based on the requested task
-            console.warn("Falling back to mock implementation for task:", error);
+            console.error("Error processing document with API client:", error);
             
-            // Get document info and nodes to at least get some real data
-            const docInfoResponse = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml`);
-            const nodesResponse = await fetch(`${window.BACKEND_URL}/documents/${docId}/xml/nodes`);
+            // Format the error using API utils if available
+            const formattedError = window.apiUtils?.formatApiError 
+                ? window.apiUtils.formatApiError(error, 'Failed to process document')
+                : { message: error.message || 'Unknown error processing document' };
             
-            const docInfo = docInfoResponse.ok ? await docInfoResponse.json() : { title: "Document" };
-            const nodes = nodesResponse.ok ? await nodesResponse.json() : [];
+            // Set a proper error response with helpful details
+            taskResult = {
+                error: true,
+                error_type: formattedError.isNetworkError ? "backend_unavailable" : "processing_error",
+                message: formattedError.message,
+                details: error.message,
+                doc_id: docId,
+                task_intent: taskIntent
+            };
             
-            // Create simulated task result based on the task type
-            if (taskIntent === "extract_entities") {
-                // Simulate entity extraction
-                const entities = nodes.map(node => ({
-                    name: node.content || node.element_name,
-                    element: node.element_name,
-                    xpath: node.xpath,
-                    confidence: Math.random() * 0.5 + 0.5, // 0.5-1.0
-                    context: `Context for ${node.element_name} element`,
-                    evidence: ["Document context", "Element analysis"]
-                }));
-                
-                taskResult = {
-                    doc_id: docId,
-                    entity_count: entities.length,
-                    entities: entities
-                };
-            } else if (taskIntent === "create_verification_plan") {
-                // Group nodes by element type
-                const elementGroups = {};
-                nodes.forEach(node => {
-                    const type = node.element_name || "unknown";
-                    if (!elementGroups[type]) {
-                        elementGroups[type] = [];
+            // Create a function to display errors in the UI if not already defined
+            if (typeof displayError !== 'function') {
+                window.displayError = function(title, message, details = '') {
+                    const resultPanel = document.getElementById('resultPanel');
+                    if (resultPanel) {
+                        resultPanel.innerHTML = `
+                            <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                                <div class="flex">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h3 class="text-sm font-medium text-red-800">${title}</h3>
+                                        <div class="mt-2 text-sm text-red-700">
+                                            <p>${message}</p>
+                                            ${details ? `<pre class="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto">${details}</pre>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
                     }
-                    elementGroups[type].push(node);
-                });
-                
-                // Create tasks for each element type
-                const tasks = Object.entries(elementGroups).map(([type, nodes], index) => ({
-                    task_id: `verify_${index + 1}`,
-                    element_type: type,
-                    node_count: nodes.length,
-                    priority: type.includes("claim") ? "high" : "medium",
-                    estimated_minutes: nodes.length * 5,
-                    nodes: nodes
-                }));
-                
-                taskResult = {
-                    doc_id: docId,
-                    title: docInfo.title || "Document",
-                    verification_needed: nodes.length > 0,
-                    priority: "medium",
-                    node_count: nodes.length,
-                    tasks: tasks,
-                    recommended_approach: "sequential"
-                };
-            } else {
-                // Generic fallback
-                taskResult = {
-                    doc_id: docId,
-                    title: docInfo.title || "Document",
-                    simulated: true,
-                    message: "Simulated results for " + taskIntent
                 };
             }
             
-            console.log("Simulated task result:", taskResult);
+            // Display error in the UI
+            if (typeof displayError === 'function') {
+                const errorTitle = formattedError.isNetworkError ? "Backend Service Unavailable" : "Processing Error";
+                const errorMessage = formattedError.isNetworkError 
+                    ? "The document processing service is currently unavailable. Please try again later."
+                    : `Error processing ${processType}: ${formattedError.message}`;
+                
+                displayError(errorTitle, errorMessage, error.message);
+            }
+            
+            // This could be logged or reported to a monitoring system
+            if (window.apLogger?.error) {
+                window.apLogger.error(`Processing error for ${taskIntent} on document ${docId}: ${formattedError.message}`);
+            } else {
+                console.error(`Processing error for ${taskIntent} on document ${docId}: ${formattedError.message}`);
+            }
         }
         
         // Mark the extraction/processing as complete
@@ -850,72 +1198,61 @@ async function startProcessing() {
     }
 }
 
-function displaySimulatedResults(docId) {
+// Helper function to display error messages in the results panel
+function displayResultsError(docId, errorTitle, errorMessage, details) {
     const resultsPanel = document.getElementById('resultsPanel');
     
-    // Simulated results
-    const entities = [
-        { name: "ChatGPT", confidence: 0.95, definition: "A conversational AI model developed by OpenAI based on the GPT architecture." },
-        { name: "Machine Learning", confidence: 0.87, definition: "A subset of artificial intelligence focused on building systems that learn from data." },
-        { name: "Natural Language Processing", confidence: 0.92, definition: "A field of AI that focuses on the interaction between computers and human language." }
-    ];
-    
-    // Build results HTML
-    let resultsHtml = `
+    // Build error HTML
+    let errorHtml = `
         <div class="space-y-4">
             <div class="flex justify-between">
                 <h3 class="font-medium text-lg">Processing Results</h3>
-                <div>
-                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded">Download XML</button>
-                    <button class="px-2 py-1 bg-green-600 text-white text-sm rounded ml-2">Export Report</button>
+            </div>
+            
+            <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">${errorTitle}</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <p>${errorMessage}</p>
+                            ${details ? `<pre class="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto">${details}</pre>` : ''}
+                        </div>
+                        <div class="mt-4">
+                            <button type="button" id="retry-process" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none">
+                                Retry
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <div class="bg-white border rounded-md p-3">
-                <h4 class="font-medium mb-2">Summary</h4>
-                <p>Processed document: <strong>${docId}</strong></p>
-                <p>Entities found: <strong>${entities.length}</strong></p>
-                <p>Processing time: <strong>7.2 seconds</strong></p>
-            </div>
-            
-            <div class="bg-white border rounded-md p-3">
-                <h4 class="font-medium mb-2">Extracted Entities</h4>
-                <div class="space-y-3">
-    `;
-    
-    // Add each entity
-    entities.forEach(entity => {
-        resultsHtml += `
-            <div class="border-l-4 border-indigo-500 pl-3 py-1">
-                <div class="flex justify-between items-center">
-                    <h5 class="font-medium">${entity.name}</h5>
-                    <span class="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full">
-                        ${Math.round(entity.confidence * 100)}% confidence
-                    </span>
-                </div>
-                <p class="text-sm mt-1">${entity.definition}</p>
-            </div>
-        `;
-    });
-    
-    // Close and display the HTML
-    resultsHtml += `
-                </div>
-            </div>
-            
-            <div class="bg-white border rounded-md p-3">
-                <h4 class="font-medium mb-2">Enriched XML Sample</h4>
-                <pre class="text-xs bg-gray-100 p-2 rounded max-h-32 overflow-auto" style="white-space: pre-wrap; word-break: break-word; tab-size: 2;"><code class="language-xml">${formatXml(
-`<?xml version="1.0" encoding="UTF-8"?><research-document><entity name="ChatGPT" confidence="0.95"><definition>A conversational AI model developed by OpenAI based on the GPT architecture.</definition><references><reference type="web" url="https://openai.com/chatgpt">OpenAI ChatGPT</reference></references></entity><!-- Additional entities... --></research-document>`
-                )}</code></pre>
+                <h4 class="font-medium mb-2">Document Information</h4>
+                <p>Document ID: <strong>${docId || "Unknown"}</strong></p>
+                <p>Status: <strong>Processing Failed</strong></p>
+                <p>Time: <strong>${new Date().toLocaleTimeString()}</strong></p>
             </div>
         </div>
     `;
     
-    resultsPanel.innerHTML = resultsHtml;
+    resultsPanel.innerHTML = errorHtml;
     
-    // Apply Prism highlighting to the code sample
-    Prism.highlightAllUnder(resultsPanel);
+    // Add event listener to retry button
+    const retryBtn = document.getElementById('retry-process');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+            // Get the currently selected process type
+            const processType = document.querySelector('button[data-selected="true"]')?.dataset.processType || 'entity-extraction';
+            
+            // Trigger the process again
+            processDocument(docId, processType);
+        });
+    }
 }
 
 // Display results for entity extraction or term research
@@ -923,22 +1260,39 @@ function displayEntityResults(result, processType) {
     const resultsPanel = document.getElementById('resultsPanel');
     const isResearch = processType === 'term-research';
     
+    // Debug logging for result structure
+    if (window.apLogger) {
+        window.apLogger.info('Displaying entity results', { processType });
+        window.apLogger.data('Result structure', { 
+            hasEntities: !!result.entities,
+            entityCount: result.entity_count,
+            resultKeys: Object.keys(result),
+            resultType: typeof result
+        });
+    }
+    
     // Extract entities from the result
     let entities = [];
     if (result.entities) {
         entities = result.entities;
+        if (window.apLogger) {
+            window.apLogger.debug('Using entities from result.entities');
+        }
     } else if (result.entity_count && result.entities) {
         entities = result.entities;
+        if (window.apLogger) {
+            window.apLogger.debug('Using entities from result.entities (with entity_count)');
+        }
     } else {
-        // Fallback to simulated entities if API doesn't return expected format
-        entities = [
-            { name: "Entity 1", element: "claim", confidence: 0.85, context: "Context for entity 1" },
-            { name: "Entity 2", element: "statement", confidence: 0.76, context: "Context for entity 2" }
-        ];
+        if (window.apLogger) {
+            window.apLogger.warn('API returned unexpected format with no entities', result);
+        }
+        // No simulated entities - instead, show an empty result
+        entities = [];
     }
     
-    // Calculate processing time (simulated)
-    const processingTime = (Math.random() * 2 + 3).toFixed(1);
+    // Get processing time from result or use "N/A"
+    const processingTime = result.processing_time ? result.processing_time.toFixed(1) : "N/A";
     
     // Build results HTML
     let resultsHtml = `
@@ -946,8 +1300,8 @@ function displayEntityResults(result, processType) {
             <div class="flex justify-between">
                 <h3 class="font-medium text-lg">${isResearch ? 'Research' : 'Entity Extraction'} Results</h3>
                 <div>
-                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded">Download XML</button>
-                    <button class="px-2 py-1 bg-green-600 text-white text-sm rounded ml-2">Export Report</button>
+                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded download-xml-btn">Download XML</button>
+                    <button class="px-2 py-1 bg-green-600 text-white text-sm rounded ml-2 export-report-btn">Export Report</button>
                 </div>
             </div>
             
@@ -964,12 +1318,44 @@ function displayEntityResults(result, processType) {
     `;
     
     // Add each entity
-    entities.forEach(entity => {
+    entities.forEach((entity, index) => {
+        // Debug source information
+        if (window.apLogger) {
+            window.apLogger.data(`Entity ${index} source info`, {
+                name: entity.name || entity.content || "Unnamed",
+                hasSource: !!entity.sources,
+                sourceCount: entity.sources ? entity.sources.length : 0,
+                sourceType: entity.sources ? typeof entity.sources : 'N/A',
+                entityKeys: Object.keys(entity)
+            });
+            
+            // Convert sources to expected format if needed
+            if (entity.verification_data && entity.verification_data.sources && !entity.sources) {
+                window.apLogger.debug('Moving sources from verification_data to entity.sources', entity.verification_data.sources);
+                entity.sources = entity.verification_data.sources;
+            }
+        }
+        
         const confidence = Math.round((entity.confidence || 0.7) * 100);
         const name = entity.name || entity.content || "Unnamed Entity";
         const context = entity.context || "";
         const evidence = entity.evidence || [];
         const element = entity.element || "unknown";
+        
+        // Check if entity has sources and ensure it's an array
+        const hasSources = entity.sources && Array.isArray(entity.sources) && entity.sources.length > 0;
+        
+        // For debugging, print details about sources to console
+        if (window.apLogger && hasSources) {
+            window.apLogger.debug(`Entity ${name} has ${entity.sources.length} sources`);
+            entity.sources.forEach((source, idx) => {
+                window.apLogger.data(`Source ${idx}`, { 
+                    title: source.title || 'Unnamed',
+                    type: source.source_type || source.type || 'unknown',
+                    keys: Object.keys(source)
+                });
+            });
+        }
         
         resultsHtml += `
             <div class="border-l-4 border-indigo-500 pl-3 py-1">
@@ -985,6 +1371,57 @@ function displayEntityResults(result, processType) {
                     `<p class="text-sm mt-1"><span class="font-medium">Evidence:</span> ${evidence.join(', ')}</p>` : ''}
                 ${isResearch ? 
                     `<p class="text-sm mt-1"><span class="font-medium">Definition:</span> ${entity.definition || "Research in progress..."}</p>` : ''}
+                    
+                <!-- Source Attribution Section -->
+                ${hasSources ? 
+                    `<div class="mt-2">
+                        <details class="text-sm">
+                            <summary class="text-indigo-600 cursor-pointer font-medium">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                    Sources (${entity.sources.length})
+                                </span>
+                            </summary>
+                            <div class="pl-2 mt-1 border-l-2 border-gray-200 space-y-1">
+                                ${entity.sources.map(source => {
+                                    const sourceType = source.source_type || source.type || 'unknown';
+                                    const sourceTitle = source.title || 'Unnamed Source';
+                                    const sourceConfidence = Math.round((source.confidence || 0.5) * 100);
+                                    
+                                    return `
+                                        <div class="py-1">
+                                            <div class="flex items-center justify-between">
+                                                <span class="font-medium">${sourceTitle}</span>
+                                                <span class="text-xs px-1 py-0.5 bg-blue-50 text-blue-700 rounded">
+                                                    ${sourceConfidence}%
+                                                </span>
+                                            </div>
+                                            <div class="text-xs text-gray-600 flex items-center">
+                                                <span class="bg-gray-100 rounded px-1">${sourceType}</span>
+                                                ${source.url ? 
+                                                    `<a href="${source.url}" target="_blank" class="ml-2 text-blue-500 hover:underline flex items-center">
+                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                                        </svg>
+                                                        link
+                                                    </a>` : 
+                                                    ''
+                                                }
+                                            </div>
+                                            ${source.citation ? 
+                                                `<div class="text-xs italic text-gray-500 mt-1">${source.citation}</div>` : 
+                                                ''
+                                            }
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </details>
+                    </div>` : 
+                    `<!-- No sources available for this entity -->`
+                }
             </div>
         `;
     });
@@ -1008,6 +1445,36 @@ function displayEntityResults(result, processType) {
     
     // Apply Prism highlighting to the code sample
     Prism.highlightAllUnder(resultsPanel);
+    
+    // Add event listeners to the download buttons
+    const downloadXmlBtn = resultsPanel.querySelector('.download-xml-btn');
+    if (downloadXmlBtn) {
+        downloadXmlBtn.addEventListener('click', () => {
+            const xmlContent = generateEntityXml(entities, isResearch);
+            const docId = result.doc_id || 'document';
+            downloadXml(xmlContent, `${docId}_processed.xml`);
+        });
+    }
+    
+    const exportReportBtn = resultsPanel.querySelector('.export-report-btn');
+    if (exportReportBtn) {
+        exportReportBtn.addEventListener('click', () => {
+            // Create a report object with the results data
+            const report = {
+                document_id: result.doc_id || 'unknown',
+                process_type: isResearch ? 'term-research' : 'entity-extraction',
+                timestamp: new Date().toISOString(),
+                entities: entities,
+                summary: {
+                    entity_count: entities.length,
+                    processing_time_seconds: parseFloat(processingTime)
+                }
+            };
+            
+            const docId = result.doc_id || 'document';
+            exportReport(report, `${docId}_${isResearch ? 'research' : 'entities'}_report.json`);
+        });
+    }
 }
 
 // Display results for structure validation
@@ -1031,8 +1498,8 @@ function displayValidationResults(result) {
             <div class="flex justify-between">
                 <h3 class="font-medium text-lg">Structure Validation Results</h3>
                 <div>
-                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded">Download Report</button>
-                    <button class="px-2 py-1 bg-green-600 text-white text-sm rounded ml-2">Start Verification</button>
+                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded export-report-btn">Download Report</button>
+                    <button class="px-2 py-1 bg-green-600 text-white text-sm rounded ml-2 start-verification-btn">Start Verification</button>
                 </div>
             </div>
             
@@ -1113,6 +1580,38 @@ function displayValidationResults(result) {
     // Close and display
     resultsHtml += `</div>`;
     resultsPanel.innerHTML = resultsHtml;
+    
+    // Add event listeners to the buttons
+    const exportReportBtn = resultsPanel.querySelector('.export-report-btn');
+    if (exportReportBtn) {
+        exportReportBtn.addEventListener('click', () => {
+            // Create a validation report
+            const report = {
+                document_id: docId,
+                title: title,
+                process_type: 'structure-validation',
+                timestamp: new Date().toISOString(),
+                verification_needed: verificationNeeded,
+                priority: priority,
+                node_count: nodeCount,
+                tasks: tasks || [],
+                summary: {
+                    processing_time_seconds: parseFloat(processingTime)
+                }
+            };
+            
+            exportReport(report, `${docId}_validation_report.json`);
+        });
+    }
+    
+    // Add event listener for start verification button
+    const startVerificationBtn = resultsPanel.querySelector('.start-verification-btn');
+    if (startVerificationBtn) {
+        startVerificationBtn.addEventListener('click', () => {
+            // In a real implementation, this would start the verification process
+            alert('Verification process initiated. This feature is coming soon.');
+        });
+    }
 }
 
 // Display generic results for other process types
@@ -1129,7 +1628,7 @@ function displayGenericResults(result, processType) {
             <div class="flex justify-between">
                 <h3 class="font-medium text-lg">${processTypeName.charAt(0).toUpperCase() + processTypeName.slice(1)} Results</h3>
                 <div>
-                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded">Download Results</button>
+                    <button class="px-2 py-1 bg-blue-600 text-white text-sm rounded export-report-btn">Download Results</button>
                 </div>
             </div>
             
@@ -1148,6 +1647,15 @@ function displayGenericResults(result, processType) {
     `;
     
     resultsPanel.innerHTML = resultsHtml;
+    
+    // Add event listener for export button
+    const exportReportBtn = resultsPanel.querySelector('.export-report-btn');
+    if (exportReportBtn) {
+        exportReportBtn.addEventListener('click', () => {
+            // Export the raw result data
+            exportReport(result, `${docId}_${processType}_report.json`);
+        });
+    }
 }
 
 // Helper function to escape HTML
@@ -1184,11 +1692,136 @@ function generateEntityXml(entities, isResearch) {
         }
         
         xml += '</evidence>';
+        
+        // Add sources if available
+        if (entity.sources && entity.sources.length > 0) {
+            xml += '<sources>';
+            
+            entity.sources.forEach(source => {
+                const sourceType = source.source_type || source.type || 'unknown';
+                const sourceTitle = source.title || 'Unnamed Source';
+                const sourceId = source.source_id || `source-${Math.random().toString(36).substring(2, 10)}`;
+                const confidence = source.confidence || 0.5;
+                
+                xml += `<source id="${sourceId}" type="${sourceType}" confidence="${confidence}"`;
+                
+                // Add optional attributes
+                if (source.url) {
+                    xml += ` url="${source.url}"`;
+                }
+                
+                if (source.retrieved_at) {
+                    xml += ` retrieved_at="${source.retrieved_at}"`;
+                }
+                
+                xml += '>';
+                
+                // Add source content
+                xml += `<title>${sourceTitle}</title>`;
+                
+                if (source.citation) {
+                    xml += `<citation>${source.citation}</citation>`;
+                }
+                
+                // Add any other metadata fields
+                if (source.metadata) {
+                    xml += '<metadata>';
+                    for (const [key, value] of Object.entries(source.metadata)) {
+                        xml += `<${key}>${value}</${key}>`;
+                    }
+                    xml += '</metadata>';
+                }
+                
+                xml += '</source>';
+            });
+            
+            xml += '</sources>';
+        }
+        
         xml += '</entity>';
     });
     
     xml += '</research-document>';
     return xml;
+}
+
+// Helper function to download XML results
+function downloadXml(xmlContent, fileName) {
+    // Format the XML for download
+    try {
+        window.apLogger?.info?.('Downloading XML file', { fileName });
+        
+        // Check if vkBeautify is available
+        let formattedXml = xmlContent;
+        if (window.vkbeautify) {
+            try {
+                formattedXml = window.vkbeautify.xml(xmlContent);
+                window.apLogger?.debug?.('Formatted XML with vkBeautify');
+            } catch (formatError) {
+                window.apLogger?.warn?.('Error formatting XML with vkBeautify, using raw XML', formatError);
+                // Fall back to basic indentation if vkBeautify fails
+                formattedXml = xmlContent.replace(/></g, '>\n<');
+            }
+        } else {
+            window.apLogger?.warn?.('vkBeautify not available, using manual XML formatting');
+            // Basic manual formatting if vkBeautify is not available
+            formattedXml = xmlContent.replace(/></g, '>\n<');
+        }
+        
+        // Create a blob from the XML content
+        const blob = new Blob([formattedXml], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        
+        // Create a download link and click it
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || 'processed-document.xml';
+        document.body.appendChild(a);
+        
+        window.apLogger?.debug?.('Triggering download');
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            window.apLogger?.debug?.('Download cleanup complete');
+        }, 100);
+        
+        return true;
+    } catch (error) {
+        window.apLogger?.error?.('Error downloading XML:', error);
+        alert('Error preparing XML for download: ' + error.message);
+        return false;
+    }
+}
+
+// Helper function to download report as JSON
+function exportReport(data, fileName) {
+    try {
+        // Create a formatted JSON string
+        const jsonContent = JSON.stringify(data, null, 2);
+        
+        // Create a blob from the JSON content
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        // Create a download link and click it
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || 'processing-report.json';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 0);
+    } catch (error) {
+        console.error('Error exporting report:', error);
+        alert('Error preparing report for download: ' + error.message);
+    }
 }
 
 // Format XML with proper indentation for display

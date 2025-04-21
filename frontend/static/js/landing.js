@@ -26,10 +26,10 @@ async function initLandingPage(rootElement) {
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="text-center mb-12">
                         <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                            XML Processing Interface
+                            Writer's Research Assistant
                         </h2>
                         <p class="mt-4 text-xl text-gray-500">
-                            Process XML documents with intelligent agent supervision
+                            Researchd ocuments with intelligent agent supervision
                         </p>
                     </div>
 
@@ -58,7 +58,7 @@ async function initLandingPage(rootElement) {
                             </div>
                         </div>
 
-                        <!-- XML Research Card -->
+                        <!-- Technical Research Card -->
                         <div class="bg-white overflow-hidden shadow rounded-lg">
                             <div class="px-4 py-5 sm:p-6">
                                 <div class="flex items-center">
@@ -68,7 +68,7 @@ async function initLandingPage(rootElement) {
                                         </svg>
                                     </div>
                                     <div class="ml-5">
-                                        <h3 class="text-lg font-medium text-gray-900">XML Research</h3>
+                                        <h3 class="text-lg font-medium text-gray-900">Technical Research</h3>
                                         <p class="mt-2 text-sm text-gray-500">
                                             Research entities and concepts in XML documents
                                         </p>
@@ -200,7 +200,7 @@ async function initLandingPage(rootElement) {
             <footer class="bg-white border-t border-gray-200 py-4">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <p class="text-center text-sm text-gray-500">
-                        Agent Provocateur • XML Processing Interface
+                        Agent Provocateur • Writer's Research Assistant
                     </p>
                     <div class="flex justify-center mt-2">
                         <div id="system-info" class="text-xs text-gray-400 flex items-center space-x-4">
@@ -294,14 +294,9 @@ async function checkSystemPorts() {
             const currentPort = window.location.port || '80';
             const portStatusContent = document.getElementById('port-status-content');
             
-            // Use the system info API to get comprehensive information
-            const infoResponse = await fetch(`${window.location.origin}/api/info`);
-            if (!infoResponse.ok) {
-                throw new Error(`Failed to fetch system info: ${infoResponse.status}`);
-            }
-            
-            const systemInfo = await infoResponse.json();
-            console.log('System info:', systemInfo);
+            // Use the API client to get system information 
+            const systemInfo = await window.apApi.getSystemInfo();
+            console.log('System info from API client:', systemInfo);
             
             // Build the status display
             let portsHtml = '';
@@ -466,12 +461,10 @@ function setupFileUpload() {
             return;
         }
         
-        // Prepare form data with the field names expected by the server
-        const formData = new FormData();
-        formData.append('title', title); // The server expects 'title'
-        formData.append('file', fileUploadInput.files[0]); // The server expects 'file'
+        // Get the selected file
+        const file = fileUploadInput.files[0];
         
-        console.log('Sending upload with title:', title, 'and file:', fileUploadInput.files[0].name);
+        console.log('Preparing to upload document with title:', title, 'and file:', file.name);
         
         // Disable form and show uploading status
         const uploadBtn = document.getElementById('uploadBtn');
@@ -480,50 +473,36 @@ function setupFileUpload() {
         uploadStatus.textContent = 'Uploading...';
         
         try {
-            console.log('Sending upload request to /documents/upload');
-            console.log('Form data:', {
-                title: formData.get('title'),
-                file: formData.get('file').name
+            // Use the API client to upload the document
+            console.log('Using API client to upload document');
+            
+            // Call the document API's upload method
+            const result = await window.apApi.documents.uploadDocument({
+                title: title,
+                file: file
             });
             
-            // Send the upload request to the test endpoint first to debug
-            console.log('Testing upload with explicit port 3001');
-            const testResponse = await fetch('http://localhost:3001/test-upload', {
-                method: 'POST',
-                body: formData
-            });
+            console.log('Upload result from API client:', result);
             
-            if (testResponse.ok) {
-                const testResult = await testResponse.json();
-                console.log('Test upload successful:', testResult);
+            // Handle response based on result
+            if (result.error) {
+                // Error case - show the error message
+                uploadStatus.textContent = result.message || result.error;
+                uploadStatus.classList.add('text-red-500');
+                uploadStatus.classList.remove('text-gray-500', 'text-green-500', 'text-yellow-500');
+                
+                // If it's a backend unavailable error but file was saved locally
+                if (result.local_only) {
+                    uploadStatus.textContent = 'Document saved locally but backend processing unavailable. Will process when backend is up.';
+                    uploadStatus.classList.add('text-yellow-500');
+                    uploadStatus.classList.remove('text-gray-500', 'text-green-500', 'text-red-500');
+                }
             } else {
-                console.error('Test upload failed:', testResponse.status, testResponse.statusText);
+                // Success case
+                uploadStatus.textContent = 'Upload successful!';
+                uploadStatus.classList.add('text-green-500');
+                uploadStatus.classList.remove('text-gray-500', 'text-red-500', 'text-yellow-500');
             }
-            
-            // Now try the real upload endpoint with explicit port 3001
-            console.log('Now trying the real endpoint on port 3001');
-            // Use absolute URL with port 3001 to avoid connecting to the wrong server
-            const response = await fetch('http://localhost:3001/documents/upload', {
-                method: 'POST',
-                body: formData
-            });
-            
-            console.log('Upload response status:', response.status, response.statusText);
-            
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-            }
-            
-            const result = await response.json();
-            
-            // Show success message
-            uploadStatus.textContent = result.simulated ? 
-                'Upload successful (simulated - backend may be unavailable)' : 
-                'Upload successful!';
-            uploadStatus.classList.add('text-green-500');
-            uploadStatus.classList.remove('text-gray-500');
-            
-            console.log('Upload result:', result);
             
             // Reset form
             titleInput.value = '';
@@ -541,23 +520,30 @@ function setupFileUpload() {
         } catch (error) {
             console.error('Error uploading document:', error);
             
-            // Show more detailed error information
-            let errorMessage = `Error: ${error.message}`;
+            // Format the error using API utils if available
+            const formattedError = window.apiUtils?.formatApiError 
+                ? window.apiUtils.formatApiError(error, 'Failed to upload document')
+                : { message: error.message || 'Unknown error uploading document' };
             
-            // Show additional details about the request
-            errorMessage += `\nEndpoint: /documents/upload\nMethod: POST`;
-            console.log('Form data being sent:', {
-                title: titleInput.value.trim(),
-                file: fileUploadInput.files[0] ? fileUploadInput.files[0].name : 'No file'
-            });
+            // Show more detailed error information
+            let errorMessage = formattedError.message;
             
             // Display error in UI
             uploadStatus.textContent = errorMessage;
             uploadStatus.classList.add('text-red-500');
             uploadStatus.classList.remove('text-gray-500');
             
-            // Show an alert for better visibility during debugging
-            alert(`Upload failed: ${error.message}`);
+            // If this appears to be a network or backend error, provide additional context
+            if (formattedError.isNetworkError || formattedError.status === 0) {
+                uploadStatus.textContent += ' (Backend server appears to be unavailable)';
+            }
+            
+            console.log('Upload error details:', {
+                title: title,
+                fileName: file.name,
+                errorType: formattedError.status || 'unknown'
+            });
+            
         } finally {
             // Re-enable form
             uploadBtn.disabled = false;
@@ -568,69 +554,194 @@ function setupFileUpload() {
 
 async function loadDocuments() {
     const tableBody = document.getElementById('documentTableBody');
+    const docTable = document.getElementById('documentList');
     
     try {
-        console.log('Fetching documents with explicit port 3001');
-        // Fetch documents from the backend through local server on port 3001
-        const response = await fetch(`http://localhost:3001/api/documents`);
-        console.log('Documents response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch documents: ${response.status}`);
-        }
+        console.log('Fetching documents using API client');
         
-        const documents = await response.json();
-        const xmlDocuments = documents.filter(doc => doc.doc_type === 'xml');
-        
-        if (xmlDocuments.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center" colspan="4">
-                        No XML documents found in the system.
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        // Populate the table
-        tableBody.innerHTML = '';
-        xmlDocuments.forEach(doc => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${doc.title}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-500">${doc.doc_id}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-500">${new Date(doc.created_at).toLocaleString()}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-600">
-                    <a href="/document-viewer?doc=${doc.doc_id}" class="text-indigo-600 hover:text-indigo-900">View</a>
-                </td>
-            `;
-            tableBody.appendChild(row);
-        });
-        
-        // Add event listeners to the view links
-        document.querySelectorAll('a[href^="/document-viewer"]').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = new URL(this.href);
-                const docId = url.searchParams.get('doc');
-                window.location.href = `/document-viewer?doc=${docId}`;
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error loading documents:', error);
+        // Show loading state
         tableBody.innerHTML = `
             <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-red-500 text-center" colspan="4">
-                    Error loading documents: ${error.message}
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center" colspan="4">
+                    <div class="flex items-center justify-center">
+                        <svg class="animate-spin h-5 w-5 mr-3 text-indigo-500" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading documents...
+                    </div>
                 </td>
             </tr>
         `;
+        
+        // Use API client to fetch documents
+        try {
+            // Get documents using the API client
+            const documents = await window.apApi.documents.getAllDocuments();
+            console.log('Documents loaded from API client:', documents);
+            
+            // Filter for XML documents
+            const xmlDocuments = documents.filter(doc => doc.doc_type === 'xml');
+            
+            if (xmlDocuments.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center" colspan="4">
+                            No XML documents found in the system.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Populate the table
+            tableBody.innerHTML = '';
+            xmlDocuments.forEach(doc => {
+                // Add a local indicator for documents that haven't been synchronized to backend
+                const isLocalOnly = doc.local_only === true;
+                const syncStatus = isLocalOnly ? 
+                    `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Local Only
+                    </span>` : '';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${doc.title}</div>
+                        ${syncStatus}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${doc.doc_id}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${new Date(doc.created_at).toLocaleString()}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-600">
+                        <a href="/document-viewer?doc=${doc.doc_id}" class="text-indigo-600 hover:text-indigo-900">
+                            ${isLocalOnly ? 'View (limited)' : 'View'}
+                        </a>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Add event listeners to the view links
+            document.querySelectorAll('a[href^="/document-viewer"]').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const url = new URL(this.href);
+                    const docId = url.searchParams.get('doc');
+                    window.location.href = `/document-viewer?doc=${docId}`;
+                });
+            });
+            
+        } catch (apiError) {
+            // Handle API client errors
+            console.error('API client error:', apiError);
+            
+            // Format the error using API utils if available
+            const formattedError = window.apiUtils?.formatApiError 
+                ? window.apiUtils.formatApiError(apiError, 'Failed to load documents')
+                : { message: apiError.message || 'Unknown error loading documents' };
+            
+            const errorMessage = formattedError.message;
+            
+            // Display user-friendly error message
+            tableBody.innerHTML = `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-center" colspan="4">
+                        <div class="bg-red-50 border border-red-200 rounded-md p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-medium text-red-800">Error Loading Documents</h3>
+                                    <div class="mt-2 text-sm text-red-700">
+                                        <p>${errorMessage}</p>
+                                    </div>
+                                    <div class="mt-4">
+                                        <button type="button" id="retry-load-docs" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none">
+                                            Retry
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            
+            // Check if we have backend status information
+            if (formattedError.isNetworkError || formattedError.status === 0) {
+                // Add a warning banner above the table indicating backend unavailability
+                const warningBanner = document.createElement('div');
+                warningBanner.className = 'bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4';
+                warningBanner.innerHTML = `
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                Backend server appears to be unavailable. Check your connection or try again later.
+                                <button id="refresh-docs" class="font-medium underline text-yellow-700 hover:text-yellow-600">
+                                    Refresh
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+                `;
+                
+                docTable.parentNode.insertBefore(warningBanner, docTable);
+                
+                // Add refresh button handler
+                document.getElementById('refresh-docs')?.addEventListener('click', () => {
+                    // Remove the warning banner
+                    warningBanner.remove();
+                    // Reload documents
+                    loadDocuments();
+                });
+            }
+            
+            // Add retry button handler
+            document.getElementById('retry-load-docs')?.addEventListener('click', () => loadDocuments());
+        }
+        
+    } catch (error) {
+        console.error('Unexpected error loading documents:', error);
+        tableBody.innerHTML = `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-center" colspan="4">
+                    <div class="bg-red-50 border border-red-200 rounded-md p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Error Loading Documents</h3>
+                                <div class="mt-2 text-sm text-red-700">
+                                    <p>${error.message || 'Unknown error'}</p>
+                                </div>
+                                <div class="mt-4">
+                                    <button type="button" id="retry-load-docs" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none">
+                                        Retry
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+        
+        // Add retry button handler
+        document.getElementById('retry-load-docs')?.addEventListener('click', () => loadDocuments());
     }
 }
