@@ -534,10 +534,26 @@ class ResearchSupervisorAgent(BaseAgent):
             else:
                 payload["entity"] = description
         
-        elif "extract_entities" in capabilities:
-            # For entity extraction, we need a document ID
+        elif "extract_entities" in capabilities or "parse_xml" in capabilities or "analyze_structure" in capabilities:
+            # For XML-related tasks, we need a document ID
             if "doc_id" in options:
                 payload["doc_id"] = options["doc_id"]
+                
+                # If this is a command extraction task, set the appropriate options
+                if "extract" in description.lower() and any(term in description.lower() for term in 
+                                                          ["command", "step", "config", "cisco", "router"]):
+                    payload["extract_type"] = "commands"
+                    payload["format"] = options.get("format", "text")
+                    
+                # If this is a validation task, set validation options
+                elif any(term in description.lower() for term in ["validate", "verify", "check"]):
+                    payload["validation_level"] = options.get("validation_level", "standard")
+        
+        elif "validate_xml" in capabilities:
+            # For XML validation, we need a document ID
+            if "doc_id" in options:
+                payload["doc_id"] = options["doc_id"]
+                payload["validation_level"] = options.get("validation_level", "standard")
         
         # Add any additional options from the task itself
         task_options = task.get("options", {})

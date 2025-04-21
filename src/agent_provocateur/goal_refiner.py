@@ -98,7 +98,7 @@ class GoalRefiner:
     
     def _generate_fallback_tasks(self, high_level_goal: str) -> List[Dict[str, Any]]:
         """
-        Generate basic tasks without using an LLM.
+        Generate basic tasks without using an LLM based on pattern matching.
         
         Args:
             high_level_goal: The user's high-level goal
@@ -106,17 +106,61 @@ class GoalRefiner:
         Returns:
             List of task definitions
         """
-        # Simple fallback that creates a generic task
         self.logger.info("Using fallback task generation")
         
-        # Create a single task with the goal as description
-        return [{
-            "task_id": str(uuid.uuid4()),
-            "description": high_level_goal,
-            "capabilities": ["process_text", "search", "analyze"],
-            "dependencies": [],
-            "priority": 1
-        }]
+        # Look for XML or document-related keywords
+        goal_lower = high_level_goal.lower()
+        
+        # XML-related tasks
+        if any(term in goal_lower for term in ["xml", "document", "extract", "parse", "cisco", "configuration", "router", "guide"]):
+            if "extract" in goal_lower and any(term in goal_lower for term in ["command", "step", "config", "cisco", "router"]):
+                # Specific task for extracting configuration commands from XML
+                return [{
+                    "task_id": str(uuid.uuid4()),
+                    "description": high_level_goal,
+                    "capabilities": ["extract_entities", "parse_xml", "analyze_structure"],
+                    "dependencies": [],
+                    "priority": 1
+                }]
+            elif any(term in goal_lower for term in ["validate", "verify", "check"]):
+                # XML validation task
+                return [{
+                    "task_id": str(uuid.uuid4()),
+                    "description": high_level_goal,
+                    "capabilities": ["validate_xml", "analyze_structure"],
+                    "dependencies": [],
+                    "priority": 1
+                }]
+            else:
+                # Generic XML processing task
+                return [{
+                    "task_id": str(uuid.uuid4()),
+                    "description": high_level_goal,
+                    "capabilities": ["parse_xml", "extract_entities"],
+                    "dependencies": [],
+                    "priority": 1
+                }]
+        
+        # Search-related tasks
+        elif any(term in goal_lower for term in ["search", "find", "lookup", "research"]):
+            return [{
+                "task_id": str(uuid.uuid4()),
+                "description": high_level_goal,
+                "capabilities": ["search", "research_entity"],
+                "dependencies": [],
+                "priority": 1
+            }]
+        
+        # Default fallback
+        else:
+            # Create a generic task with the goal as description
+            return [{
+                "task_id": str(uuid.uuid4()),
+                "description": high_level_goal,
+                "capabilities": ["process_text", "search", "analyze"],
+                "dependencies": [],
+                "priority": 1
+            }]
     
     def _map_tasks_to_agents(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

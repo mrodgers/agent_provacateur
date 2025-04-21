@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cisco:configuration-guide xmlns:cisco="http://www.cisco.com/ns/doc/configuration"
+                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                         xsi:schemaLocation="http://www.cisco.com/ns/doc/configuration cisco-doc.xsd">
+  <title>Cisco IOS XE Router Configuration Guide</title>
+  <document-id>ROUTER-CFG-1234</document-id>
+  <version>17.3.1</version>
+  <date>2025-04-20</date>
+  
+  <metadata>
+    <product>Cisco ASR 1000 Series Aggregation Services Routers</product>
+    <audience>Network Administrators</audience>
+    <security-level>Public</security-level>
+    <document-type>Configuration Guide</document-type>
+    <related-documents>
+      <document>Cisco IOS XE Command Reference</document>
+      <document>Cisco ASR 1000 Hardware Installation Guide</document>
+    </related-documents>
+  </metadata>
+  
+  <chapter id="introduction">
+    <title>Introduction to Router Configuration</title>
+    <section id="overview">
+      <title>Overview</title>
+      <paragraph>
+        This guide provides information about configuring Cisco ASR 1000 Series Aggregation Services Routers 
+        running Cisco IOS XE Software. It contains procedures for configuring the router interfaces, routing 
+        protocols, security features, and quality of service mechanisms.
+      </paragraph>
+      <paragraph>
+        The Cisco ASR 1000 Series Router is designed to deliver critical network services for enterprise and 
+        service provider networks. It offers high availability, high performance, and service flexibility.
+      </paragraph>
+      <note type="important">
+        Before configuring your router, ensure you have completed the initial setup procedure 
+        as described in the Hardware Installation Guide.
+      </note>
+    </section>
+    
+    <section id="prerequisites">
+      <title>Prerequisites</title>
+      <paragraph>
+        Before proceeding with configuration, ensure you have:
+      </paragraph>
+      <list>
+        <item>Physical access to the router console port</item>
+        <item>Terminal emulation software on your management computer</item>
+        <item>Serial cable to connect to the console port</item>
+        <item>Basic understanding of networking concepts and terminology</item>
+        <item>Understanding of the Cisco IOS XE command-line interface (CLI)</item>
+      </list>
+      <paragraph>
+        You should also have the following information ready:
+      </paragraph>
+      <list>
+        <item>IP addressing plan for your network</item>
+        <item>Routing protocol parameters if implementing dynamic routing</item>
+        <item>Network security policy requirements</item>
+      </list>
+    </section>
+    
+    <section id="conventions">
+      <title>Document Conventions</title>
+      <paragraph>
+        This document uses the following conventions:
+      </paragraph>
+      <table>
+        <header>
+          <cell>Convention</cell>
+          <cell>Description</cell>
+        </header>
+        <row>
+          <cell>bold</cell>
+          <cell>Commands, keywords, and user-entered text</cell>
+        </row>
+        <row>
+          <cell>italic</cell>
+          <cell>Variables for which you supply values</cell>
+        </row>
+        <row>
+          <cell>[   ]</cell>
+          <cell>Optional elements</cell>
+        </row>
+        <row>
+          <cell>{x|y|z}</cell>
+          <cell>Required alternative keywords</cell>
+        </row>
+      </table>
+    </section>
+  </chapter>
+  
+  <chapter id="basic-configuration">
+    <title>Basic Router Configuration</title>
+    
+    <section id="initial-setup">
+      <title>Initial Router Setup</title>
+      <paragraph>
+        Connect to the router console port using the following settings:
+      </paragraph>
+      <list>
+        <item>9600 baud</item>
+        <item>8 data bits</item>
+        <item>No parity</item>
+        <item>1 stop bit</item>
+        <item>No flow control</item>
+      </list>
+      <code-block>
+        # Power on the router
+        # After the boot sequence, you will see:
+        
+        --- System Configuration Dialog ---
+        
+        Would you like to enter the initial configuration dialog? [yes/no]:
+      </code-block>
+      <paragraph>
+        Enter 'yes' to begin the initial configuration dialog or 'no' to configure the router manually.
+      </paragraph>
+      <note type="caution">
+        If you choose 'no', you will need to configure the router entirely through CLI commands.
+      </note>
+    </section>
+    
+    <section id="hostname-configuration">
+      <title>Configuring Hostname and Domain Name</title>
+      <paragraph>
+        To configure the router hostname and domain name, follow these steps:
+      </paragraph>
+      <code-block>
+        Router> enable
+        Router# configure terminal
+        Router(config)# hostname ASR1000-Core
+        ASR1000-Core(config)# ip domain name example.com
+        ASR1000-Core(config)# exit
+        ASR1000-Core# copy running-config startup-config
+      </code-block>
+      <paragraph>
+        These commands set the router hostname to "ASR1000-Core" and the domain name to "example.com".
+        The last command saves the configuration to the startup configuration file.
+      </paragraph>
+    </section>
+    
+    <section id="user-accounts">
+      <title>Configuring User Accounts</title>
+      <paragraph>
+        It is recommended to create individual user accounts for authentication and accountability.
+        To configure a user account with privilege level 15 (administrative access), use the following commands:
+      </paragraph>
+      <code-block>
+        ASR1000-Core# configure terminal
+        ASR1000-Core(config)# username admin privilege 15 secret StrongPassword123
+        ASR1000-Core(config)# exit
+        ASR1000-Core# copy running-config startup-config
+      </code-block>
+      <paragraph>
+        This creates a user named "admin" with full administrative privileges. The password is encrypted using 
+        the strong MD5 hashing algorithm.
+      </paragraph>
+      <note type="security">
+        Always use strong, complex passwords for router authentication. Passwords should contain a mix of 
+        uppercase and lowercase letters, numbers, and special characters.
+      </note>
+    </section>
+  </chapter>
+  
+  <chapter id="interface-configuration">
+    <title>Interface Configuration</title>
+    
+    <section id="interface-types">
+      <title>Interface Types Overview</title>
+      <paragraph>
+        The Cisco ASR 1000 Series Router supports various interface types:
+      </paragraph>
+      <list>
+        <item>Gigabit Ethernet (GE)</item>
+        <item>10 Gigabit Ethernet (10GE)</item>
+        <item>Serial</item>
+        <item>ATM</item>
+        <item>POS (Packet over SONET)</item>
+        <item>Management interfaces</item>
+      </list>
+      <paragraph>
+        Interface naming conventions follow this pattern:
+      </paragraph>
+      <code-block>
+        interface-type slot/subslot/port
+      </code-block>
+      <paragraph>
+        For example, GigabitEthernet0/0/0 refers to:
+      </paragraph>
+      <list>
+        <item>Interface type: GigabitEthernet</item>
+        <item>Slot: 0</item>
+        <item>Subslot: 0</item>
+        <item>Port: 0</item>
+      </list>
+    </section>
+    
+    <section id="ethernet-configuration">
+      <title>Configuring Ethernet Interfaces</title>
+      <paragraph>
+        To configure a Gigabit Ethernet interface with an IP address and subnet mask, use the following commands:
+      </paragraph>
+      <code-block>
+        ASR1000-Core# configure terminal
+        ASR1000-Core(config)# interface GigabitEthernet0/0/0
+        ASR1000-Core(config-if)# description Connection to Corporate LAN
+        ASR1000-Core(config-if)# ip address 192.168.1.1 255.255.255.0
+        ASR1000-Core(config-if)# no shutdown
+        ASR1000-Core(config-if)# exit
+        ASR1000-Core(config)# exit
+        ASR1000-Core# copy running-config startup-config
+      </code-block>
+      <paragraph>
+        These commands:
+      </paragraph>
+      <list>
+        <item>Enter interface configuration mode for GigabitEthernet0/0/0</item>
+        <item>Add a descriptive label for the interface</item>
+        <item>Assign IP address 192.168.1.1 with subnet mask 255.255.255.0</item>
+        <item>Enable the interface</item>
+        <item>Save the configuration</item>
+      </list>
+      <note type="tip">
+        Always add descriptive labels to interfaces to simplify troubleshooting and documentation.
+      </note>
+    </section>
+    
+    <section id="interface-verification">
+      <title>Verifying Interface Configuration</title>
+      <paragraph>
+        To verify the interface configuration, use the following commands:
+      </paragraph>
+      <code-block>
+        ASR1000-Core# show interfaces GigabitEthernet0/0/0
+        ASR1000-Core# show ip interface brief
+        ASR1000-Core# show running-config interface GigabitEthernet0/0/0
+      </code-block>
+      <paragraph>
+        The first command displays detailed information about the specified interface, including 
+        its current status, configuration, and statistics. The second command shows a summary of all 
+        interfaces with their IP addresses and status. The third command shows the current configuration 
+        for the specified interface.
+      </paragraph>
+    </section>
+  </chapter>
+  
+  <appendix id="command-reference">
+    <title>Command Reference</title>
+    <section id="common-commands">
+      <title>Commonly Used Commands</title>
+      <table>
+        <header>
+          <cell>Command</cell>
+          <cell>Description</cell>
+        </header>
+        <row>
+          <cell>show running-config</cell>
+          <cell>Displays the current active configuration</cell>
+        </row>
+        <row>
+          <cell>show startup-config</cell>
+          <cell>Displays the startup configuration stored in NVRAM</cell>
+        </row>
+        <row>
+          <cell>show interfaces</cell>
+          <cell>Displays information about all router interfaces</cell>
+        </row>
+        <row>
+          <cell>show ip route</cell>
+          <cell>Displays the IP routing table</cell>
+        </row>
+        <row>
+          <cell>copy running-config startup-config</cell>
+          <cell>Saves the current configuration to NVRAM</cell>
+        </row>
+        <row>
+          <cell>clear counters</cell>
+          <cell>Resets interface counters to zero</cell>
+        </row>
+        <row>
+          <cell>reload</cell>
+          <cell>Reboots the router</cell>
+        </row>
+      </table>
+    </section>
+  </appendix>
+  
+  <glossary>
+    <title>Glossary of Terms</title>
+    <term>
+      <name>CLI</name>
+      <definition>Command-Line Interface. The text-based interface used to configure Cisco devices.</definition>
+    </term>
+    <term>
+      <name>NVRAM</name>
+      <definition>Non-Volatile Random Access Memory. Memory that retains its contents even when power is removed.</definition>
+    </term>
+    <term>
+      <name>IOS XE</name>
+      <definition>Internetwork Operating System XE. The operating system used on Cisco ASR 1000 Series Routers.</definition>
+    </term>
+    <term>
+      <name>QoS</name>
+      <definition>Quality of Service. Network mechanisms that prioritize traffic based on type or other criteria.</definition>
+    </term>
+    <term>
+      <name>ASR</name>
+      <definition>Aggregation Services Router. A family of Cisco routers designed for aggregation of network traffic.</definition>
+    </term>
+  </glossary>
+  
+</cisco:configuration-guide>
