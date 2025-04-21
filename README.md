@@ -13,6 +13,7 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **Document Types**: Support for multiple document types (text, PDF, image, code, structured data, XML)
 - **Verification System**: Advanced verification for XML claims and statements with confidence scoring
 - **Source Attribution**: Comprehensive source tracking for all AI-generated content with confidence scores
+- **GraphRAG**: Graph-based retrieval-augmented generation for enhanced source attribution and entity extraction
 - **Goal Refinement**: Intelligent breaking down of high-level goals into structured tasks mapped to agent capabilities
 - **Web Search**: Integrated web search with multiple provider support (Brave, Google, Bing) and source attribution
 - **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
@@ -45,8 +46,11 @@ pip install -e ".[dev,frontend]"
 # With web search support
 pip install -e ".[dev,websearch]"
 
+# With GraphRAG support
+pip install -e ".[dev,graphrag]"
+
 # With all features
-pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend,websearch]"
+pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend,websearch,graphrag]"
 ```
 
 ## Service Management
@@ -62,6 +66,9 @@ All Agent Provocateur services can be managed using the unified service script:
 
 # Start web search
 ./scripts/start_ap.sh start web_search_mcp
+
+# Start GraphRAG MCP server
+./scripts/start_ap.sh start graphrag_mcp
 
 # Check status of all services
 ./scripts/start_ap.sh status
@@ -297,7 +304,7 @@ python scripts/xml_agent_cli.py plan xml1                            # Create ve
 python scripts/xml_agent_cli.py verify xml1 --search-depth high      # Test batch verification
 ```
 
-#### XML Research
+#### Technical Research
 
 The system supports extracting entities from XML documents and researching them to generate enriched XML output:
 
@@ -317,7 +324,7 @@ ap-client research xml1 --with-search
 
 For more details on XML verification, research, and source attribution, see:
 - [XML Verification Guide](docs/guides/xml_verification.md)
-- [XML Research Implementation](docs/implementation/phase3_implementation.md)
+- [Technical Research Implementation](docs/implementation/phase3_implementation.md)
 - [Source Attribution Guide](docs/guides/source_attribution.md)
 
 ### Using Web Search

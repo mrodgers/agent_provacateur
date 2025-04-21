@@ -676,6 +676,16 @@ def get_service_definitions():
             # Requires Node.js to be installed
             required_commands=["node", "npm"]
         ),
+        "graphrag_mcp": Service(
+            name="graphrag_mcp",
+            start_cmd=f"cd {PROJECT_ROOT} && ./scripts/run_graphrag_mcp.sh",
+            check_cmd="ps aux | grep -E 'node.*graphrag_mcp/dist/index.js' | grep -v grep",
+            check_port=8083,
+            depends_on=[],  # Independent service
+            cwd=os.path.join(PROJECT_ROOT),
+            # Requires Node.js to be installed
+            required_commands=["node", "npm"]
+        ),
         "frontend": Service(
             name="frontend",
             start_cmd=f"cd {PROJECT_ROOT}/frontend && python server.py --host 127.0.0.1 --port 3001 --backend-url http://localhost:8000",
@@ -726,8 +736,15 @@ def get_running_services():
                 }
                 
             # Check for Web Search MCP
-            if ('node' in cmdline and 'dist/index.js' in cmdline) or ('web-search-mcp' in cmdline):
+            if ('node' in cmdline and 'web_search_mcp/dist/index.js' in cmdline) or ('web-search-mcp' in cmdline):
                 result['web_search_mcp'] = {
+                    'pid': proc_info['pid'],
+                    'cmdline': cmdline
+                }
+                
+            # Check for GraphRAG MCP
+            if ('node' in cmdline and 'graphrag_mcp/dist/index.js' in cmdline) or ('graphrag-mcp' in cmdline):
+                result['graphrag_mcp'] = {
                     'pid': proc_info['pid'],
                     'cmdline': cmdline
                 }
@@ -831,7 +848,7 @@ def main():
     monitor_thread.start()
     
     if args.command == "start":
-        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp"]  # Default: Start core services including web_search_mcp
+        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp", "graphrag_mcp"]  # Default: Start core services
         for service_name in service_list:
             start_service(service_name, services, logs_dir)
         print_status_report(services)
@@ -843,7 +860,7 @@ def main():
         print_status_report(services)
     
     elif args.command == "restart":
-        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp"]
+        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp", "graphrag_mcp"]
         for service_name in service_list:
             stop_service(service_name, services)
             start_service(service_name, services, logs_dir)

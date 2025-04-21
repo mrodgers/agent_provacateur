@@ -20,6 +20,7 @@ Documentation for external APIs and integrations:
 - [Ollama API](api/OLLAMA_API.md): Integration with Ollama for local LLM support
 - [Web Search Integration](api/web_search_integration.md): Web search with multiple provider support
 - [Brave Search API](api/brave_web_search.md): Integration with Brave Search API
+- [GraphRAG MCP API](api/graphrag_mcp_api.md): GraphRAG microservice API for source attribution
 
 ## Guides
 
@@ -37,6 +38,7 @@ Development guidelines and tooling:
 - [Claude AI Guide](development/CLAUDE.md): Instructions for Claude AI when working with this codebase
 - [Coding Guidelines](development/coding_guidelines.md): Coding standards and best practices
 - [Development Setup](development/DEVELOPMENT.md): Environment setup and development workflow
+- [GraphRAG MCP Guide](development/graphrag_mcp_guide.md): Guide to using GraphRAG for enhanced source attribution
 
 ## Implementation Details
 
@@ -59,7 +61,7 @@ Documentation for the web user interface:
 
 - [Frontend Architecture](architecture/frontend_architecture.md): Web UI design and implementation
 - [UX Design](uxd/ux_design.md): User experience design specifications
-- [Web UI Guide](guides/ui_guide.md): User guide for the XML processing interface
+- [Web UI Guide](guides/ui_guide.md): User guide for the Writer's Research Assistant XML processing interface
 
 ## Other Resources
 
