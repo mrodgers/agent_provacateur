@@ -123,8 +123,12 @@ These scripts provide command-line tools for development, service management, an
 ### Web Search Workflow
 
 ```bash
-# Start the Web Search MCP server
+# Method 1: Using the general service manager
 ./scripts/start_ap.sh start web_search_mcp
+
+# Method 2: Using the dedicated web search manager (recommended)
+./scripts/manage_web_search.sh start
+./scripts/manage_web_search.sh start --port 8081 --debug  # With custom options
 
 # Test web search with a query
 ./scripts/ap.sh web-search --query "latest AI developments"
@@ -132,9 +136,14 @@ These scripts provide command-line tools for development, service management, an
 # Test with a specific provider
 ./scripts/ap.sh web-search --query "climate change" --provider google
 
+# Check web search server status
+./scripts/manage_web_search.sh status
+
 # Stop the server when done
-./scripts/start_ap.sh stop web_search_mcp
+./scripts/manage_web_search.sh stop
 ```
+
+> **Note**: The older `run_web_search_mcp.sh` and `start_with_web_search.sh` scripts are deprecated and will be removed in a future update. Please use `manage_web_search.sh` instead.
 
 ### XML Processing Workflow
 
