@@ -276,3 +276,34 @@ class GraphRAGClient:
             "confidence": confidence,
             "explanation": "Attribution based on source references in the response"
         }
+    
+    async def index_text_document(
+        self, 
+        content: str, 
+        title: str, 
+        doc_type: str = "markdown",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Index a text or Markdown document in GraphRAG.
+        
+        Args:
+            content: Document content
+            title: Document title
+            doc_type: Document type (markdown, text)
+            metadata: Optional metadata
+            
+        Returns:
+            Document ID in the index
+        """
+        result = await self.call_tool("graphrag_index_text_document", {
+            "document_content": content,
+            "document_type": doc_type,
+            "title": title,
+            "metadata": metadata or {}
+        })
+        
+        if not result.get("success"):
+            raise Exception(f"Failed to index text document: {result.get('error')}")
+        
+        return result.get("doc_id")

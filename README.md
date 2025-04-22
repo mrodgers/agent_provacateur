@@ -13,7 +13,7 @@ A Python library for developing, benchmarking, and deploying AI agents for resea
 - **Document Types**: Support for multiple document types (text, PDF, image, code, structured data, XML)
 - **Verification System**: Advanced verification for XML claims and statements with confidence scoring
 - **Source Attribution**: Comprehensive source tracking for all AI-generated content with confidence scores
-- **GraphRAG**: Graph-based retrieval-augmented generation for enhanced source attribution and entity extraction
+- **GraphRAG**: Graph-based retrieval-augmented generation for enhanced source attribution and entity extraction, with support for XML, Markdown, and text documents
 - **Goal Refinement**: Intelligent breaking down of high-level goals into structured tasks mapped to agent capabilities
 - **Web Search**: Integrated web search with multiple provider support (Brave, Google, Bing) and source attribution
 - **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
@@ -67,8 +67,11 @@ All Agent Provocateur services can be managed using the unified service script:
 # Start web search
 ./scripts/start_ap.sh start web_search_mcp
 
-# Start GraphRAG MCP server
+# Start GraphRAG MCP server (TypeScript implementation)
 ./scripts/start_ap.sh start graphrag_mcp
+
+# Start GraphRAG MCP server (Python implementation with FAISS)
+./scripts/start_ap.sh start graphrag_mcp_py
 
 # Check status of all services
 ./scripts/start_ap.sh status

@@ -3,13 +3,24 @@
  * Defines the tools that can be called by agents via the MCP interface
  */
 
-import { McpToolDefinition } from '@modelcontextprotocol/sdk/types.js';
+/**
+ * Tool definition interface
+ */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, any>;
+    required: string[];
+  };
+}
 
 /**
  * Build the list of tools exposed by the GraphRAG MCP server
  * @returns List of tool definitions
  */
-export function buildToolList(): McpToolDefinition[] {
+export function buildToolList(): ToolDefinition[] {
   return [
     {
       name: 'graphrag_index_document',
@@ -33,6 +44,34 @@ export function buildToolList(): McpToolDefinition[] {
           }
         },
         required: ['document_content']
+      }
+    },
+    {
+      name: 'graphrag_index_text_document',
+      description: 'Index a text or Markdown document into the knowledge graph',
+      parameters: {
+        type: 'object',
+        properties: {
+          document_content: {
+            type: 'string',
+            description: 'Content of the document to index'
+          },
+          document_type: {
+            type: 'string',
+            description: 'Type of text document (text, markdown)',
+            default: 'markdown'
+          },
+          title: {
+            type: 'string',
+            description: 'Title of the document'
+          },
+          metadata: {
+            type: 'object',
+            description: 'Additional metadata for the document',
+            additionalProperties: true
+          }
+        },
+        required: ['document_content', 'title']
       }
     },
     {
