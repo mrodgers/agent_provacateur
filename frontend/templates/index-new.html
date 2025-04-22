@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Agent Provocateur - Research Assistant Platform">
+    <title>Agent Provocateur</title>
+    
+    <!-- Application Configuration -->
+    <script>
+        window.BACKEND_URL = "{{ backend_url }}";
+        window.DOC_ID = "{{ doc_id }}";
+        
+        // Debug and logging configuration
+        window.AP_DEBUG = {
+            level: 'info', // 'error', 'warn', 'info', 'debug', 'verbose'
+            api: true,     // Log API calls
+            ui: true,      // Log UI events
+            data: true     // Log data transformations
+        };
+    </script>
+    
+    <!-- CSS: Main application styles -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <!-- Import Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Import dependency libraries -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <!-- Prism.js for XML syntax highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-xml.min.js"></script>
+    
+    <!-- XML formatting -->
+    <script src="https://cdn.jsdelivr.net/npm/vkbeautify@0.99.3/vkbeautify.min.js"></script>
+    
+    <!-- Load utility libraries -->
+    <script src="/static/js/utils/logger.js"></script>
+    <script src="/static/js/utils/errorHandler.js"></script>
+    <script src="/static/js/utils/common.js"></script>
+    <script src="/static/js/utils/a11y.js"></script>
+    
+    <!-- Load component library -->
+    <script src="/static/js/components/ui-components.js"></script>
+    
+    <!-- Import API client for all pages -->
+    <script src="/static/js/api-browser.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Skip to content link for accessibility -->
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
+    
+    <!-- Application container -->
+    <div id="app" class="min-h-screen">
+        <!-- Initial loading state, replaced by app -->
+        <div class="loading-container">
+            <div class="ap-spinner"></div>
+            <p class="ap-loading-text">Loading Agent Provocateur...</p>
+        </div>
+    </div>
+    
+    <!-- Message container for notifications -->
+    <div id="message-container" class="fixed top-4 right-4 left-4 md:left-auto z-40" aria-live="polite"></div>
+    
+    <!-- Error container for displaying errors -->
+    <div id="error-container" class="fixed bottom-0 left-0 right-0 p-4" aria-live="assertive"></div>
+    
+    <!-- Live region for screen reader announcements -->
+    <div id="ap-announcer" class="sr-only" aria-live="polite"></div>
+    
+    <!-- Load the appropriate script based on page -->
+    <script src="/static/js/{{ page_script or 'landing.js' }}"></script>
+    
+    <!-- Initialize the application -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create loading spinner for initial load
+            const appContainer = document.getElementById('app');
+            const loadingSpinner = APComponents.createLoadingSpinner({
+                size: 'large',
+                text: 'Loading Agent Provocateur...'
+            });
+            
+            // Check system status
+            APUtils.checkSystemPorts()
+                .then(status => {
+                    if (status.error) {
+                        appContainer.innerHTML = '';
+                        const errorAlert = APComponents.createAlert({
+                            type: 'error',
+                            title: 'Connection Error',
+                            message: 'Unable to connect to backend services. Please check that the server is running.',
+                            dismissible: true
+                        });
+                        appContainer.appendChild(errorAlert);
+                    }
+                })
+                .catch(error => {
+                    // Handle error silently - page script will handle proper loading
+                    apLogger.error('Error checking system status:', error);
+                });
+        });
+    </script>
+</body>
+</html>
