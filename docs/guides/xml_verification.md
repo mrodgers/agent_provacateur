@@ -197,7 +197,7 @@ The XML verification capabilities can be integrated into larger workflows:
 4. **Task Assignment**: Assign verification tasks to human or AI verifiers
 5. **Reporting**: Compile verification results and generate reports
 
-## XML Research
+## Technical Research
 
 Agent Provocateur now includes integrated research capabilities for XML documents through the CLI's `research` command:
 
@@ -232,6 +232,77 @@ The enriched XML includes:
 
 For implementation details, see [Phase 3 Implementation](../implementation/phase3_implementation.md).
 
+## DocBook Schema Validation
+
+Agent Provocateur now includes comprehensive DocBook XML validation capabilities:
+
+### DocBook Validation Features
+
+1. **Namespace Validation**: Verifies correct DocBook namespace declaration (`http://docbook.org/ns/docbook`)
+2. **Version Validation**: Confirms appropriate DocBook version attribute (5.0, 5.1, 5.2)
+3. **Structure Validation**: Ensures proper root elements (article, book) and required components
+4. **Element Validation**: Checks for proper DocBook element usage
+5. **Entity Validation**: Verifies that entities used in the document are defined
+6. **Extension Validation**: Validates custom extensions like entity/definition elements
+7. **Source Attribution**: Ensures proper attribution for researched entities
+
+### Using DocBook Validation
+
+```bash
+# Validate a DocBook XML document
+python xml_agent_cli.py validate --file sample.xml --schema docbook
+
+# Validate with custom DocBook schema URL
+python xml_agent_cli.py validate --file sample.xml --schema-url http://custom-docbook.org/schema.xsd
+
+# Validate with specific options
+python xml_agent_cli.py validate --file sample.xml --validate-entities --validate-attribution
+```
+
+### Programmatic Validation
+
+```python
+import asyncio
+from agent_provocateur.xml_agent import XmlAgent
+from agent_provocateur.a2a_models import TaskRequest
+
+async def validate_docbook():
+    # Create agent
+    agent = XmlAgent("xml_validator")
+    
+    # Create validation request
+    with open("sample.xml", "r") as f:
+        xml_content = f.read()
+    
+    task_request = TaskRequest(
+        task_id="validation_task",
+        source_agent="user_agent",
+        target_agent="xml_validator",
+        intent="validate_xml_output",
+        payload={
+            "xml_content": xml_content,
+            "schema_url": "http://docbook.org/xml/5.0/xsd/docbook.xsd",
+            "validate_entities": True,
+            "validate_attribution": True
+        }
+    )
+    
+    # Execute validation
+    result = await agent.handle_validate_xml_output(task_request)
+    
+    # Check results
+    if result["valid"]:
+        print("Document is valid DocBook XML")
+    else:
+        print("Document validation failed:")
+        for error in result["errors"]:
+            print(f"- {error}")
+        for warning in result["warnings"]:
+            print(f"- Warning: {warning}")
+
+asyncio.run(validate_docbook())
+```
+
 ## Next Steps
 
 Future enhancements planned for XML verification and research:
@@ -240,7 +311,7 @@ Future enhancements planned for XML verification and research:
 2. Integration with additional search capabilities for automatic fact-checking
 3. Improved confidence scoring with machine learning
 4. Collaborative verification workflows with human-in-the-loop
-5. Full DocBook and DITA schema validation and compliance checking
+5. Complete DITA schema validation and compliance checking
 6. Custom research templates for different domains
 
 ## Troubleshooting

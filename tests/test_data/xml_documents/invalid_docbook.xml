@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Invalid DocBook example missing namespace and with incorrect root element -->
+<documentation>
+    <title>Invalid DocBook Example</title>
+    <para>This document does not conform to DocBook 5.0 standards.</para>
+    
+    <section>
+        <title>Missing Elements</title>
+        <para>
+            This document is missing proper namespace declarations and has an incorrect root element.
+        </para>
+    </section>
+    
+    <section>
+        <title>Undefined Entities</title>
+        <para>
+            References an undefined entity: &myentity;
+        </para>
+    </section>
+    
+    <!-- Invalid: DocBook 5.0 uses info not articleinfo -->
+    <articleinfo>
+        <author>John Doe</author>
+        <date>2023-05-15</date>
+    </articleinfo>
+    
+    <!-- Custom elements without definitions -->
+    <entity>GraphQL</entity>
+</documentation>

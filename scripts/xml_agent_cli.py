@@ -173,6 +173,77 @@ async def verify_xml(args):
                                 print(f"     Snippet: {sr['snippet'][:100]}...")
 
 
+async def validate_xml_schema(args):
+    """Validate XML document against a schema."""
+    if args.file:
+        # Load file content
+        with open(args.file, 'r', encoding='utf-8') as f:
+            xml_content = f.read()
+    elif args.doc_id:
+        # Get document from API
+        client = McpClient(args.server)
+        xml_content = await client.get_xml_content(args.doc_id)
+    else:
+        print("Error: Either --file or --doc_id must be specified")
+        sys.exit(1)
+    
+    # Create XML agent
+    broker = InMemoryMessageBroker()
+    agent = XmlAgent("cli_xml_agent", broker)
+    
+    # Determine schema URL
+    schema_url = args.schema_url
+    if args.schema == 'docbook':
+        schema_url = "http://docbook.org/xml/5.0/xsd/docbook.xsd"
+    elif args.schema == 'dita':
+        schema_url = "http://docs.oasis-open.org/dita/v1.2/schema/ditabase.xsd"
+    
+    # Create validation request
+    task_request = TaskRequest(
+        task_id="validation_task",
+        source_agent="cli_agent",
+        target_agent="xml_agent",
+        intent="validate_xml_output",
+        payload={
+            "xml_content": xml_content,
+            "schema_url": schema_url,
+            "schema_type": args.schema_type,
+            "validate_entities": args.validate_entities,
+            "validate_attribution": args.validate_attribution
+        }
+    )
+    
+    # Execute validation
+    result = await agent.handle_validate_xml_output(task_request)
+    
+    # Output results
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return
+    
+    print("\nXML Validation Results")
+    print("=" * 50)
+    print(f"Schema URL: {result['schema_url']}")
+    print(f"Schema Type: {result['schema_type']}")
+    print(f"Schema Validation Performed: {result.get('schema_validation_performed', False)}")
+    print(f"Valid: {result['valid']}")
+    
+    if result['errors']:
+        print("\nErrors:")
+        for i, error in enumerate(result['errors'], 1):
+            print(f"{i}. {error}")
+    
+    if result['warnings']:
+        print("\nWarnings:")
+        for i, warning in enumerate(result['warnings'], 1):
+            print(f"{i}. {warning}")
+    
+    if result['valid']:
+        print("\nDocument is valid against the specified schema.")
+    else:
+        print("\nDocument is not valid against the specified schema.")
+
+
 def main():
     parser = argparse.ArgumentParser(description='XML Agent CLI')
     parser.add_argument('--server', default=get_api_url(), help='Server URL')
@@ -204,6 +275,20 @@ def main():
     verify_parser.add_argument('--verbose', action='store_true',
                              help='Show detailed results')
     
+    # Validate command
+    validate_parser = subparsers.add_parser('validate', help='Validate XML against schema')
+    validate_parser.add_argument('--file', help='XML file to validate')
+    validate_parser.add_argument('--doc_id', help='Document ID to validate')
+    validate_parser.add_argument('--schema', choices=['docbook', 'dita'], default='docbook',
+                              help='Schema to validate against')
+    validate_parser.add_argument('--schema-url', help='Custom schema URL')
+    validate_parser.add_argument('--schema-type', choices=['xsd', 'dtd', 'rng'], default='xsd',
+                              help='Schema type')
+    validate_parser.add_argument('--validate-entities', action='store_true',
+                              help='Validate entity definitions')
+    validate_parser.add_argument('--validate-attribution', action='store_true',
+                              help='Validate source attribution')
+    
     args = parser.parse_args()
     
     # Check if server is running
@@ -215,6 +300,8 @@ def main():
         asyncio.run(plan_verification(args))
     elif args.command == 'verify':
         asyncio.run(verify_xml(args))
+    elif args.command == 'validate':
+        asyncio.run(validate_xml_schema(args))
     else:
         parser.print_help()
         sys.exit(1)
