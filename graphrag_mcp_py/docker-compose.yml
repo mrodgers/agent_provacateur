@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  graphrag-mcp-py:
+    build: .
+    ports:
+      - "8083:8083"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8083
+      - VECTOR_DB_TYPE=faiss
+      - VECTOR_DB_PATH=/app/data/vectors/faiss
+      - MAX_RESULTS=10
+      - MIN_CONFIDENCE=0.5
+      - TRAVERSAL_DEPTH=2
+      - ENABLE_CACHE=true
+      - MAX_CACHE_SIZE=1000
+      - CACHE_TTL=3600
+      - RATE_LIMIT_WINDOW=60000
+      - RATE_LIMIT_MAX=100
+      - LOG_LEVEL=info
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - graphrag-network
+    restart: unless-stopped
+
+networks:
+  graphrag-network:
+    driver: bridge
