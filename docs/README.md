@@ -35,6 +35,7 @@ User and developer guides for specific features:
 
 Development guidelines and tooling:
 
+- [Development Plan 2025](development/development_plan_2025.md): Current roadmap and priorities
 - [Claude AI Guide](development/CLAUDE.md): Instructions for Claude AI when working with this codebase
 - [Coding Guidelines](development/coding_guidelines.md): Coding standards and best practices
 - [Development Setup](development/DEVELOPMENT.md): Environment setup and development workflow
@@ -44,10 +45,18 @@ Development guidelines and tooling:
 
 Documentation of implementation phases and specific components:
 
-- [Phase 1 Implementation](implementation/phase1_implementation.md): MCP Tools development details
-- [Phase 2 Implementation](implementation/phase2_implementation.md): A2A Communication development details
-- [Phase 2 XML Implementation](implementation/PHASE2_XML_IMPLEMENTATION.md): XML Analysis Agent implementation details
-- [Phase 3 Implementation](implementation/phase3_implementation.md): Research integration, web UI, and source attribution
+- [Phase 1 Implementation](implementation/phase1_implementation.md): MCP Tools development details ✅
+- [Phase 2 Implementation](implementation/phase2_implementation.md): A2A Communication development details ✅
+- [Phase 2 XML Implementation](implementation/PHASE2_XML_IMPLEMENTATION.md): XML Analysis Agent implementation details ✅
+- [Phase 3 Implementation](implementation/phase3_implementation.md): Research integration, web UI, and source attribution 🔄
+
+### Current Implementation Status
+
+- **Completed**: DocBook XML validation, Web Search integration, basic UI
+- **In Progress**: GraphRAG Python implementation (75%), Entity Linking (40%)
+- **Upcoming**: Advanced entity relationship detection, UI visualization enhancements
+
+See [Development Plan 2025](development/development_plan_2025.md) for detailed roadmap.
 
 ## Components
 
