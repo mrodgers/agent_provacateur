@@ -47,6 +47,14 @@ These scripts provide command-line tools for development, service management, an
   ./scripts/stop_frontend.sh --force # Force stop any stubborn processes
   ```
 
+- **`test_component_library.sh`** - UI component testing script
+  ```bash
+  ./scripts/test_component_library.sh              # Start test server and open browser
+  ./scripts/test_component_library.sh --no-clean   # Start without stopping existing servers
+  ./scripts/test_component_library.sh --run-tests  # Auto-run tests after starting
+  ./scripts/test_component_library.sh --no-browser # Start server without opening browser
+  ```
+
 ### XML Tools
 
 - **`xml_cli.py`** - XML document management CLI
@@ -111,6 +119,9 @@ These scripts provide command-line tools for development, service management, an
 
 # Run tests
 ./scripts/ap.sh test
+
+# Test UI components specifically
+./scripts/test_component_library.sh     # Start UI component test environment
 
 # Check service status
 ./scripts/start_ap.sh status
