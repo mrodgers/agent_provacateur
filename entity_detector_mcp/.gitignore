@@ -1,0 +1,16 @@
+# Dependency directories
+node_modules/
+dist/
+
+# Logs
+*.log
+
+# Coverage directory
+coverage/
+
+# OS specific files
+.DS_Store
+
+# Environment variables
+.env
+.env.*
