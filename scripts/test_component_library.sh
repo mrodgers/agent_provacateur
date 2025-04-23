@@ -208,6 +208,9 @@ if [ "$RUN_TESTS" = true ]; then
 <head>
   <title>Component Test Runner</title>
   <script>
+    // Set flag to prevent auto-running tests from the script itself
+    window.__LOADED_BY_TEST_RUNNER = true;
+    
     // Load necessary utilities and components
     ${TEST_SCRIPT}
     
@@ -218,6 +221,9 @@ if [ "$RUN_TESTS" = true ]; then
       tester.runTests().then(results => {
         console.log('Tests completed:', JSON.stringify(results));
         document.getElementById('results').textContent = JSON.stringify(results, null, 2);
+      }).catch(error => {
+        console.error('Test error:', error);
+        document.getElementById('results').textContent = 'Error: ' + error.message;
       });
     });
   </script>

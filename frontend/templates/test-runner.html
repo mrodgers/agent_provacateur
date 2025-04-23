@@ -268,9 +268,13 @@
                                 const runnerFunc = `
                                     function runComponentTests() {
                                         try {
+                                            // Set flag to prevent auto-running tests from the script itself
+                                            window.__LOADED_BY_TEST_RUNNER = true;
+                                            
+                                            // Load the test script
                                             ${testScript}
                                             
-                                            // When tests are complete, send results to parent
+                                            // Create our own tester instance and run the tests
                                             const tester = new ComponentTester();
                                             tester.runTests().then(results => {
                                                 window.parent.postMessage({
@@ -283,6 +287,12 @@
                                                             .map(script => script.textContent.match(/Testing ([^']+)/)?.[1] || '')
                                                             .filter(Boolean)
                                                     }
+                                                }, '*');
+                                            }).catch(error => {
+                                                window.parent.postMessage({
+                                                    type: 'test-error',
+                                                    error: error.toString(),
+                                                    stack: error.stack
                                                 }, '*');
                                             });
                                             return 'Tests started';

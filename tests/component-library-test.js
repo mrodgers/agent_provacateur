@@ -1688,12 +1688,15 @@ tester.setup = async function() {
   }
 };
 
-// Run tests and handle the promise
-tester.runTests()
-  .then(results => {
-    console.log('Tests completed successfully');
-    return results;
-  })
-  .catch(error => {
-    console.error('Test execution failed at top level:', error);
-  });
+// Only run tests automatically if not being loaded by the test runner
+if (typeof window.__LOADED_BY_TEST_RUNNER === 'undefined') {
+  const tester = new ComponentTester();
+  tester.runTests()
+    .then(results => {
+      console.log('Tests completed successfully');
+      return results;
+    })
+    .catch(error => {
+      console.error('Test execution failed at top level:', error);
+    });
+}
