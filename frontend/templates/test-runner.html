@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Agent Provocateur - Component Test Runner">
+    <title>Component Library Test Runner</title>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.5;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        
+        .test-controls {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+        }
+        
+        .test-controls button {
+            padding: 0.5rem 1rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        
+        .test-controls button:hover {
+            background-color: #2563eb;
+        }
+        
+        .test-results {
+            margin-top: 2rem;
+        }
+        
+        .test-summary {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+        
+        .test-summary.success {
+            background-color: #d1fae5;
+            border: 1px solid #10b981;
+        }
+        
+        .test-summary.failure {
+            background-color: #fee2e2;
+            border: 1px solid #ef4444;
+        }
+        
+        .test-detail-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .test-detail {
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .test-detail:last-child {
+            border-bottom: none;
+        }
+        
+        .test-detail.pass {
+            background-color: #f0fdf4;
+        }
+        
+        .test-detail.fail {
+            background-color: #fef2f2;
+        }
+        
+        .test-detail.pending {
+            background-color: #fef3c7;
+        }
+        
+        .pass-indicator {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .pass-indicator.success {
+            background-color: #10b981;
+        }
+        
+        .pass-indicator.failure {
+            background-color: #ef4444;
+        }
+        
+        .pass-indicator.pending {
+            background-color: #f59e0b;
+        }
+        
+        .test-error {
+            margin-top: 0.25rem;
+            padding: 0.5rem;
+            background-color: #fee2e2;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .test-category {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background-color: #f3f4f6;
+            border-left: 4px solid #4f46e5;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .loading-indicator {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .test-controls button {
+                display: block;
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Component Library Test Runner</h1>
+    </header>
+    
+    <main>
+        <div class="test-controls">
+            <button id="run-tests">Run Tests</button>
+            <button id="view-component-test">Open Component Test Page</button>
+            <button id="view-source">View Test Source</button>
+        </div>
+        
+        <div id="test-status">
+            Click "Run Tests" to begin testing the component library.
+        </div>
+        
+        <div id="test-results" class="test-results" style="display: none;">
+            <div id="test-summary" class="test-summary">
+                <h2>Test Results</h2>
+                <div id="test-summary-content"></div>
+            </div>
+            
+            <h3>Test Details</h3>
+            <div id="test-details" class="test-detail-container"></div>
+        </div>
+    </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const runTestsButton = document.getElementById('run-tests');
+            const viewComponentTestButton = document.getElementById('view-component-test');
+            const viewSourceButton = document.getElementById('view-source');
+            const testStatus = document.getElementById('test-status');
+            const testResults = document.getElementById('test-results');
+            const testSummary = document.getElementById('test-summary');
+            const testSummaryContent = document.getElementById('test-summary-content');
+            const testDetails = document.getElementById('test-details');
+            
+            // Store test data
+            let testData = {
+                results: null,
+                categories: [],
+                details: []
+            };
+            
+            // Handle Run Tests button
+            runTestsButton.addEventListener('click', function() {
+                runTests();
+            });
+            
+            // Handle View Component Test button
+            viewComponentTestButton.addEventListener('click', function() {
+                window.open('/component-test', '_blank');
+            });
+            
+            // Handle View Source button
+            viewSourceButton.addEventListener('click', function() {
+                // Fetch and display test source code
+                fetch('/tests/component-library-test.js')
+                    .then(response => response.text())
+                    .then(source => {
+                        const sourceWindow = window.open('', '_blank');
+                        sourceWindow.document.write(`
+                            <html>
+                                <head>
+                                    <title>Component Library Test Source</title>
+                                    <style>
+                                        body {
+                                            font-family: monospace;
+                                            white-space: pre;
+                                            padding: 20px;
+                                            line-height: 1.5;
+                                        }
+                                    </style>
+                                </head>
+                                <body>${source.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</body>
+                            </html>
+                        `);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching test source:', error);
+                        alert('Error fetching test source code.');
+                    });
+            });
+            
+            // Run tests in an iframe to isolate execution
+            function runTests() {
+                testStatus.innerHTML = '<div class="loading-indicator"></div> Creating test environment...';
+                testResults.style.display = 'none';
+                
+                // Create iframe to load the component test page
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                
+                // Load the component test page in the iframe
+                iframe.src = '/component-test';
+                
+                // When the iframe is loaded, run the tests
+                iframe.onload = function() {
+                    testStatus.innerHTML = '<div class="loading-indicator"></div> Running tests...';
+                    
+                    // Fetch the test script
+                    fetch('/tests/component-library-test.js')
+                        .then(response => response.text())
+                        .then(testScript => {
+                            try {
+                                // Create a function to run in the iframe context
+                                const runnerFunc = `
+                                    function runComponentTests() {
+                                        try {
+                                            ${testScript}
+                                            
+                                            // When tests are complete, send results to parent
+                                            const tester = new ComponentTester();
+                                            tester.runTests().then(results => {
+                                                window.parent.postMessage({
+                                                    type: 'test-results',
+                                                    data: {
+                                                        results: results,
+                                                        details: tester.testResults.details,
+                                                        categories: Array.from(document.querySelectorAll('script'))
+                                                            .filter(script => script.textContent.includes('Testing'))
+                                                            .map(script => script.textContent.match(/Testing ([^']+)/)?.[1] || '')
+                                                            .filter(Boolean)
+                                                    }
+                                                }, '*');
+                                            });
+                                            return 'Tests started';
+                                        } catch (error) {
+                                            window.parent.postMessage({
+                                                type: 'test-error',
+                                                error: error.toString(),
+                                                stack: error.stack
+                                            }, '*');
+                                            return 'Error: ' + error.message;
+                                        }
+                                    }
+                                    runComponentTests();
+                                `;
+                                
+                                // Execute the test in the iframe context
+                                const result = iframe.contentWindow.eval(runnerFunc);
+                                console.log('Test execution result:', result);
+                                
+                            } catch (error) {
+                                console.error('Error setting up tests:', error);
+                                testStatus.innerHTML = `Error setting up tests: ${error.message}`;
+                                
+                                // Clean up iframe
+                                document.body.removeChild(iframe);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching test script:', error);
+                            testStatus.innerHTML = `Error fetching test script: ${error.message}`;
+                            
+                            // Clean up iframe
+                            document.body.removeChild(iframe);
+                        });
+                };
+                
+                // Listen for messages from the iframe
+                window.addEventListener('message', function(event) {
+                    if (event.data.type === 'test-results') {
+                        // Store test data
+                        testData = event.data.data;
+                        
+                        // Display results
+                        displayTestResults(testData);
+                        
+                        // Clean up iframe
+                        document.body.removeChild(iframe);
+                    } else if (event.data.type === 'test-error') {
+                        console.error('Test execution error:', event.data.error, event.data.stack);
+                        testStatus.innerHTML = `Error executing tests: ${event.data.error}`;
+                        
+                        // Clean up iframe
+                        document.body.removeChild(iframe);
+                    }
+                });
+            }
+            
+            // Display test results
+            function displayTestResults(data) {
+                // Show results container
+                testResults.style.display = 'block';
+                
+                // Update status
+                testStatus.innerHTML = 'Test execution complete.';
+                
+                // Calculate pass rate
+                const total = data.results.total;
+                const passed = data.results.passed;
+                const failed = data.results.failed;
+                const passRate = data.results.passPercentage;
+                
+                // Update summary
+                testSummary.className = failed > 0 ? 'test-summary failure' : 'test-summary success';
+                testSummaryContent.innerHTML = `
+                    <p><strong>Total Tests:</strong> ${total}</p>
+                    <p><strong>Passed:</strong> ${passed}</p>
+                    <p><strong>Failed:</strong> ${failed}</p>
+                    <p><strong>Pass Rate:</strong> ${passRate}%</p>
+                `;
+                
+                // Clear existing details
+                testDetails.innerHTML = '';
+                
+                // Group tests by category
+                let currentCategory = '';
+                data.details.forEach((detail, index) => {
+                    // Check if we need to add a category header
+                    if (data.categories.length > index && currentCategory !== data.categories[index]) {
+                        currentCategory = data.categories[index];
+                        testDetails.innerHTML += `<div class="test-category">${currentCategory}</div>`;
+                    }
+                    
+                    // Add test detail
+                    const statusClass = detail.status === 'passed' ? 'pass' : detail.status === 'pending' ? 'pending' : 'fail';
+                    const indicatorClass = detail.status === 'passed' ? 'success' : detail.status === 'pending' ? 'pending' : 'failure';
+                    
+                    const detailElement = document.createElement('div');
+                    detailElement.className = `test-detail ${statusClass}`;
+                    detailElement.innerHTML = `
+                        <div>
+                            <span class="pass-indicator ${indicatorClass}"></span>
+                            <span>${detail.name}</span>
+                        </div>
+                        ${detail.error ? `<div class="test-error">${detail.error}</div>` : ''}
+                    `;
+                    
+                    testDetails.appendChild(detailElement);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

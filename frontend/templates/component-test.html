@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Agent Provocateur - Component Test">
+    <title>Component Library Test</title>
+    
+    <!-- Application Configuration -->
+    <script>
+        window.BACKEND_URL = "{{ backend_url }}";
+        
+        // Debug and logging configuration
+        window.AP_DEBUG = {
+            level: 'info', // 'error', 'warn', 'info', 'debug', 'verbose'
+            api: true,     // Log API calls
+            ui: true,      // Log UI events
+            data: true     // Log data transformations
+        };
+    </script>
+    
+    <!-- CSS: Main application styles -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <!-- Import Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Include Axios for API calls -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <!-- Load utility libraries -->
+    <script src="/static/js/utils/logger.js"></script>
+    <script src="/static/js/utils/errorHandler.js"></script>
+    <script src="/static/js/utils/common.js"></script>
+    <script src="/static/js/utils/a11y.js"></script>
+    
+    <!-- Load component library -->
+    <script src="/static/js/components/ui-components.js"></script>
+    
+    <!-- Import API client -->
+    <script src="/static/js/api/core-api.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Skip to content link for accessibility -->
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
+    
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-900">Component Library Test</h1>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">Button Components</h2>
+            <div id="button-container" class="flex flex-wrap gap-2 mb-4"></div>
+            
+            <h2 class="text-lg font-semibold mb-4 mt-8">Loading Spinners</h2>
+            <div id="spinner-container" class="flex flex-wrap gap-6 mb-4"></div>
+            
+            <h2 class="text-lg font-semibold mb-4 mt-8">Alert Components</h2>
+            <div id="alert-container" class="space-y-4 mb-4"></div>
+            
+            <h2 class="text-lg font-semibold mb-4 mt-8">Form Components</h2>
+            <div id="form-container" class="mb-4">
+                <form id="test-form" class="space-y-4">
+                    <!-- Form inputs will be added here -->
+                </form>
+            </div>
+            
+            <h2 class="text-lg font-semibold mb-4 mt-8">Card Components</h2>
+            <div id="card-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"></div>
+            
+            <h2 class="text-lg font-semibold mb-4 mt-8">Modal Dialog</h2>
+            <div id="modal-container" class="mb-4"></div>
+        </div>
+    </main>
+    
+    <!-- Message container for notifications -->
+    <div id="message-container" class="fixed top-4 right-4 left-4 md:left-auto z-40" aria-live="polite"></div>
+    
+    <!-- Error container for displaying errors -->
+    <div id="error-container" class="fixed bottom-0 left-0 right-0 p-4" aria-live="assertive"></div>
+    
+    <!-- Live region for screen reader announcements -->
+    <div id="ap-announcer" class="sr-only" aria-live="polite"></div>
+    
+    <!-- Initialize the test components -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize logger
+            if (window.apLogger) {
+                apLogger.info('Component test page initialized');
+            }
+            
+            // Test buttons
+            initButtons();
+            
+            // Test spinners
+            initSpinners();
+            
+            // Test alerts
+            initAlerts();
+            
+            // Test forms
+            initForms();
+            
+            // Test cards
+            initCards();
+            
+            // Test modal
+            initModal();
+            
+            // Announce for screen readers
+            if (window.APa11y) {
+                APa11y.announce('Component test page loaded successfully');
+            }
+        });
+        
+        function initButtons() {
+            const container = document.getElementById('button-container');
+            
+            // Primary button
+            const primaryButton = APComponents.createButton({
+                text: 'Primary Button',
+                type: 'primary',
+                onClick: () => {
+                    apLogger.ui('Primary button clicked');
+                    APa11y.announce('Primary button clicked');
+                }
+            });
+            container.appendChild(primaryButton);
+            
+            // Secondary button
+            const secondaryButton = APComponents.createButton({
+                text: 'Secondary Button',
+                type: 'secondary',
+                onClick: () => {
+                    apLogger.ui('Secondary button clicked');
+                    APa11y.announce('Secondary button clicked');
+                }
+            });
+            container.appendChild(secondaryButton);
+            
+            // Danger button
+            const dangerButton = APComponents.createButton({
+                text: 'Danger Button',
+                type: 'danger',
+                onClick: () => {
+                    apLogger.ui('Danger button clicked');
+                    errorHandler.displayError('This is a simulated error', 'error-container', {
+                        title: 'Error Example',
+                        details: 'This error was triggered by clicking the danger button'
+                    });
+                }
+            });
+            container.appendChild(dangerButton);
+            
+            // Success button
+            const successButton = APComponents.createButton({
+                text: 'Success Button',
+                type: 'success',
+                onClick: () => {
+                    apLogger.ui('Success button clicked');
+                    errorHandler.displaySuccess('Operation completed successfully', 'message-container', {
+                        title: 'Success',
+                        autoDismiss: 3000
+                    });
+                }
+            });
+            container.appendChild(successButton);
+            
+            // Outline button
+            const outlineButton = APComponents.createButton({
+                text: 'Outline Button',
+                type: 'outline',
+                onClick: () => {
+                    apLogger.ui('Outline button clicked');
+                }
+            });
+            container.appendChild(outlineButton);
+            
+            // Button with icon
+            const iconButton = APComponents.createButton({
+                text: 'Icon Button',
+                type: 'primary',
+                icon: '<svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>',
+                onClick: () => {
+                    apLogger.ui('Icon button clicked');
+                }
+            });
+            container.appendChild(iconButton);
+            
+            // Disabled button
+            const disabledButton = APComponents.createButton({
+                text: 'Disabled Button',
+                type: 'primary',
+                disabled: true,
+                onClick: () => {
+                    apLogger.ui('Disabled button clicked - should not happen');
+                }
+            });
+            container.appendChild(disabledButton);
+        }
+        
+        function initSpinners() {
+            const container = document.getElementById('spinner-container');
+            
+            // Small spinner
+            const smallSpinner = APComponents.createLoadingSpinner({
+                size: 'small',
+                color: 'blue',
+                text: 'Small'
+            });
+            container.appendChild(smallSpinner);
+            
+            // Medium spinner
+            const mediumSpinner = APComponents.createLoadingSpinner({
+                size: 'medium',
+                color: 'green',
+                text: 'Medium'
+            });
+            container.appendChild(mediumSpinner);
+            
+            // Large spinner
+            const largeSpinner = APComponents.createLoadingSpinner({
+                size: 'large',
+                color: 'indigo',
+                text: 'Large'
+            });
+            container.appendChild(largeSpinner);
+        }
+        
+        function initAlerts() {
+            const container = document.getElementById('alert-container');
+            
+            // Info alert
+            const infoAlert = APComponents.createAlert({
+                type: 'info',
+                title: 'Information',
+                message: 'This is an informational alert with important details.',
+                dismissible: true
+            });
+            container.appendChild(infoAlert);
+            
+            // Success alert
+            const successAlert = APComponents.createAlert({
+                type: 'success',
+                title: 'Success',
+                message: 'Operation completed successfully.',
+                dismissible: true
+            });
+            container.appendChild(successAlert);
+            
+            // Warning alert
+            const warningAlert = APComponents.createAlert({
+                type: 'warning',
+                title: 'Warning',
+                message: 'This action may have consequences.',
+                dismissible: true
+            });
+            container.appendChild(warningAlert);
+            
+            // Error alert
+            const errorAlert = APComponents.createAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred while processing your request.',
+                dismissible: true
+            });
+            container.appendChild(errorAlert);
+        }
+        
+        function initForms() {
+            const form = document.getElementById('test-form');
+            
+            // Text input
+            const textInput = APComponents.createFormInput({
+                type: 'text',
+                id: 'username',
+                name: 'username',
+                label: 'Username',
+                placeholder: 'Enter your username',
+                required: true,
+                helpText: 'Username must be at least 3 characters long'
+            });
+            form.appendChild(textInput);
+            
+            // Email input
+            const emailInput = APComponents.createFormInput({
+                type: 'email',
+                id: 'email',
+                name: 'email',
+                label: 'Email',
+                placeholder: 'Enter your email',
+                required: true
+            });
+            form.appendChild(emailInput);
+            
+            // Password input
+            const passwordInput = APComponents.createFormInput({
+                type: 'password',
+                id: 'password',
+                name: 'password',
+                label: 'Password',
+                placeholder: 'Enter your password',
+                required: true,
+                errorMessage: 'Password is required'
+            });
+            form.appendChild(passwordInput);
+            
+            // Disabled input
+            const disabledInput = APComponents.createFormInput({
+                type: 'text',
+                id: 'disabled-input',
+                name: 'disabled-input',
+                label: 'Disabled Input',
+                value: 'This input is disabled',
+                disabled: true
+            });
+            form.appendChild(disabledInput);
+            
+            // Submit button
+            const submitButton = APComponents.createButton({
+                text: 'Submit Form',
+                type: 'primary',
+                onClick: (e) => {
+                    e.preventDefault();
+                    validateAndSubmit();
+                }
+            });
+            form.appendChild(submitButton);
+        }
+        
+        function validateAndSubmit() {
+            // Simple validation example
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            let isValid = true;
+            let errorMessages = [];
+            
+            if (!username || username.length < 3) {
+                isValid = false;
+                errorMessages.push('Username must be at least 3 characters long');
+            }
+            
+            if (!email || !email.includes('@')) {
+                isValid = false;
+                errorMessages.push('Please enter a valid email address');
+            }
+            
+            if (!password) {
+                isValid = false;
+                errorMessages.push('Password is required');
+            }
+            
+            if (isValid) {
+                // Show success message
+                errorHandler.displaySuccess('Form submitted successfully', 'message-container', {
+                    autoDismiss: 3000
+                });
+                
+                // Announce to screen readers
+                APa11y.announce('Form submitted successfully');
+                
+                // Log the form data
+                apLogger.data('Form data submitted', { username, email });
+            } else {
+                // Show error message
+                errorHandler.displayError(
+                    errorMessages.join('<br>'),
+                    'error-container',
+                    {
+                        title: 'Validation Error',
+                        type: 'error'
+                    }
+                );
+                
+                // Announce to screen readers
+                APa11y.announce('Form validation failed. ' + errorMessages.join('. '));
+            }
+        }
+        
+        function initCards() {
+            const container = document.getElementById('card-container');
+            
+            // Basic card
+            const basicCard = APComponents.createCard({
+                title: 'Basic Card',
+                content: '<p>This is a basic card with a title and content.</p>'
+            });
+            container.appendChild(basicCard);
+            
+            // Card with actions
+            const cardWithActions = APComponents.createCard({
+                title: 'Card with Actions',
+                content: '<p>This card has action buttons in the header.</p>',
+                headerActions: `
+                    <div class="flex space-x-2">
+                        <button class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">Edit</button>
+                        <button class="px-2 py-1 bg-red-100 text-red-700 rounded text-sm">Delete</button>
+                    </div>
+                `
+            });
+            container.appendChild(cardWithActions);
+        }
+        
+        function initModal() {
+            const container = document.getElementById('modal-container');
+            
+            // Create a button to open the modal
+            const openModalButton = APComponents.createButton({
+                text: 'Open Modal Dialog',
+                type: 'primary',
+                onClick: () => showModal()
+            });
+            container.appendChild(openModalButton);
+            
+            // Initialize the modal (but don't show it yet)
+            window.testModal = APComponents.createModal({
+                title: 'Confirmation',
+                content: '<p>Are you sure you want to proceed with this action?</p>',
+                size: 'medium',
+                closeOnOutsideClick: true,
+                showClose: true,
+                onClose: () => {
+                    apLogger.ui('Modal closed');
+                    APa11y.announce('Modal closed');
+                },
+                buttons: [
+                    {
+                        text: 'Cancel',
+                        type: 'secondary',
+                        onClick: () => {
+                            apLogger.ui('Modal: Cancel clicked');
+                            APa11y.announce('Action cancelled');
+                        }
+                    },
+                    {
+                        text: 'Confirm',
+                        type: 'primary',
+                        onClick: () => {
+                            apLogger.ui('Modal: Confirm clicked');
+                            APa11y.announce('Action confirmed');
+                            errorHandler.displaySuccess('Action confirmed', 'message-container', {
+                                autoDismiss: 3000
+                            });
+                        }
+                    }
+                ]
+            });
+        }
+        
+        function showModal() {
+            if (window.testModal) {
+                window.testModal.show();
+                APa11y.announce('Modal dialog opened');
+            }
+        }
+    </script>
+</body>
+</html>
