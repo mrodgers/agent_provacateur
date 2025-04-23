@@ -55,6 +55,14 @@ These scripts provide command-line tools for development, service management, an
   ./scripts/test_component_library.sh --no-browser # Start server without opening browser
   ```
 
+- **`cleanup_all.sh`** - Comprehensive system cleanup
+  ```bash
+  ./scripts/cleanup_all.sh                # Force kill all running services
+  ./scripts/cleanup_all.sh --no-force     # Try graceful shutdown first
+  ./scripts/cleanup_all.sh --verbose      # Show detailed process information
+  ./scripts/cleanup_all.sh --no-clean-pid # Don't remove PID files
+  ```
+
 ### XML Tools
 
 - **`xml_cli.py`** - XML document management CLI
@@ -129,6 +137,9 @@ These scripts provide command-line tools for development, service management, an
 # Stop services when done
 ./scripts/stop_frontend.sh     # Stop the frontend first
 ./scripts/start_ap.sh stop     # Stop remaining services
+
+# If services aren't stopping cleanly:
+./scripts/cleanup_all.sh       # Force cleanup all services and ports
 ```
 
 ### Web Search Workflow

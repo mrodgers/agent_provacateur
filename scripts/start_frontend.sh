@@ -112,32 +112,44 @@ find_available_port() {
 stop_frontend_server() {
   echo "Checking for existing frontend server processes..." | tee -a "$FRONTEND_DEBUG_LOG"
   
-  # Find processes by the pattern 'server.py --port' and kill them
-  local pids=$(ps aux | grep "[s]erver.py.*--port" | awk '{print $2}')
-  if [ -n "$pids" ]; then
-    echo "Found existing frontend server processes. Stopping them..." | tee -a "$FRONTEND_DEBUG_LOG"
-    for pid in $pids; do
-      echo "Stopping process $pid" | tee -a "$FRONTEND_DEBUG_LOG"
-      kill "$pid" 2> /dev/null
-      
-      # Wait for process to terminate
-      local wait_count=0
-      while kill -0 "$pid" 2> /dev/null && [ $wait_count -lt 10 ]; do
-        sleep 0.5
-        wait_count=$((wait_count + 1))
-      done
-      
-      # Force kill if still running
-      if kill -0 "$pid" 2> /dev/null; then
-        echo "Process $pid did not terminate gracefully. Force killing..." | tee -a "$FRONTEND_DEBUG_LOG"
-        kill -9 "$pid" 2> /dev/null
-      fi
-    done
+  # First try using cleanup_all.sh if it exists
+  if [ -f "$SCRIPT_DIR/cleanup_all.sh" ]; then
+    echo "Using comprehensive cleanup script..." | tee -a "$FRONTEND_DEBUG_LOG"
+    
+    # Run the cleanup script with filtered output to avoid overwhelming logs
+    "$SCRIPT_DIR/cleanup_all.sh" --no-clean-pid 2>&1 | grep -i "frontend\|server.py\|port $PORT" | tee -a "$FRONTEND_DEBUG_LOG"
+    
+    # Let the cleanup script handle everything
+    sleep 1
   else
-    echo "No existing frontend server processes found" | tee -a "$FRONTEND_DEBUG_LOG"
+    # Otherwise use the original cleanup code
+    # Find processes by the pattern 'server.py --port' and kill them
+    local pids=$(ps aux | grep "[s]erver.py.*--port" | awk '{print $2}')
+    if [ -n "$pids" ]; then
+      echo "Found existing frontend server processes. Stopping them..." | tee -a "$FRONTEND_DEBUG_LOG"
+      for pid in $pids; do
+        echo "Stopping process $pid" | tee -a "$FRONTEND_DEBUG_LOG"
+        kill "$pid" 2> /dev/null
+        
+        # Wait for process to terminate
+        local wait_count=0
+        while kill -0 "$pid" 2> /dev/null && [ $wait_count -lt 10 ]; do
+          sleep 0.5
+          wait_count=$((wait_count + 1))
+        done
+        
+        # Force kill if still running
+        if kill -0 "$pid" 2> /dev/null; then
+          echo "Process $pid did not terminate gracefully. Force killing..." | tee -a "$FRONTEND_DEBUG_LOG"
+          kill -9 "$pid" 2> /dev/null
+        fi
+      done
+    else
+      echo "No existing frontend server processes found" | tee -a "$FRONTEND_DEBUG_LOG"
+    fi
   fi
   
-  # Also check for any processes using our desired port
+  # Double-check port availability regardless of which cleanup method was used
   if check_port "$PORT"; then
     echo "Warning: Port $PORT is still in use by another process" | tee -a "$FRONTEND_DEBUG_LOG"
     
@@ -145,19 +157,34 @@ stop_frontend_server() {
     if command -v lsof &> /dev/null; then
       echo "Process using port $PORT:" | tee -a "$FRONTEND_DEBUG_LOG"
       lsof -i :"$PORT" | tee -a "$FRONTEND_DEBUG_LOG"
+      
+      # Try to get PID and force kill it
+      local port_pids=$(lsof -i :"$PORT" | grep LISTEN | awk '{print $2}' | uniq)
+      if [ -n "$port_pids" ]; then
+        echo "Attempting to force kill processes on port $PORT..." | tee -a "$FRONTEND_DEBUG_LOG"
+        for pid in $port_pids; do
+          echo "Force killing PID $pid on port $PORT..." | tee -a "$FRONTEND_DEBUG_LOG"
+          kill -9 "$pid" 2>/dev/null
+        done
+        sleep 1
+      fi
     fi
     
-    # Find alternative port
-    local new_port
-    find_available_port "$((PORT + 1))"
-    new_port=$?
-    
-    if [ $new_port -ne 1 ]; then
-      echo "Switching to available port $new_port" | tee -a "$FRONTEND_DEBUG_LOG"
-      PORT=$new_port
-    else
-      echo "Error: No available ports found. Cannot start frontend server." | tee -a "$FRONTEND_DEBUG_LOG"
-      exit 1
+    # Check again after attempted force kill
+    if check_port "$PORT"; then
+      # Find alternative port as a last resort
+      local new_port
+      find_available_port "$((PORT + 1))"
+      new_port=$?
+      
+      if [ $new_port -ne 1 ]; then
+        echo "Switching to available port $new_port" | tee -a "$FRONTEND_DEBUG_LOG"
+        PORT=$new_port
+      else
+        echo "Error: No available ports found. Cannot start frontend server." | tee -a "$FRONTEND_DEBUG_LOG"
+        echo "Try running './scripts/cleanup_all.sh' to free up all ports." | tee -a "$FRONTEND_DEBUG_LOG"
+        exit 1
+      fi
     fi
   fi
 }

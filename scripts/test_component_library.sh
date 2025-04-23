@@ -54,25 +54,50 @@ echo -e "${CYAN}===== Component Library Test Runner =====${NC}"
 if [ "$CLEAN_START" = true ]; then
   echo -e "\n${YELLOW}Stopping any running services...${NC}"
   
-  # Stop any running component test server
-  ps aux | grep "server.py.*--port 3001" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null
-  ps aux | grep "server.py.*--port 3002" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null
-  
-  echo "Checking for other frontend processes..."
-  "$SCRIPT_DIR/stop_frontend.sh" --force > /dev/null 2>&1
-  
-  # Also check for any processes on the test ports
-  for port in 3001 3002; do
-    if command -v lsof &> /dev/null; then
-      port_pids=$(lsof -i :"$port" | grep LISTEN | awk '{print $2}' | uniq)
-      
-      if [ -n "$port_pids" ]; then
-        echo "Stopping processes on port $port..."
-        for pid in $port_pids; do
-          echo "Killing process $pid on port $port"
-          kill -9 "$pid" 2>/dev/null
-        done
+  # Use the cleanup_all.sh script for thorough cleaning
+  # Only clean ports 3001 and 3002 to avoid disrupting other services
+  if [ -f "$SCRIPT_DIR/cleanup_all.sh" ]; then
+    echo "Using comprehensive cleanup script..."
+    # Create a temporary function to only clean the ports we need
+    cleanup_ports() {
+      "$SCRIPT_DIR/cleanup_all.sh" --verbose | grep -v "Checking port" | grep -v "No processes" | grep -v "Port .* is free"
+    }
+    cleanup_ports
+  else
+    # Fallback to old cleanup method if the script isn't available
+    echo "Fallback: Using basic cleanup method..."
+    
+    # Stop any running component test server
+    ps aux | grep "server.py.*--port 3001" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null || true
+    ps aux | grep "server.py.*--port 3002" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null || true
+    
+    echo "Checking for other frontend processes..."
+    "$SCRIPT_DIR/stop_frontend.sh" --force > /dev/null 2>&1 || true
+    
+    # Also check for any processes on the test ports
+    for port in 3001 3002; do
+      if command -v lsof &> /dev/null; then
+        port_pids=$(lsof -i :"$port" | grep LISTEN | awk '{print $2}' | uniq)
+        
+        if [ -n "$port_pids" ]; then
+          echo "Stopping processes on port $port..."
+          for pid in $port_pids; do
+            echo "Killing process $pid on port $port"
+            kill -9 "$pid" 2>/dev/null || true
+          done
+        fi
       fi
+    done
+  fi
+  
+  # Double check that ports are free
+  echo "Verifying ports are free..."
+  for port in 3001 3002; do
+    if lsof -i :"$port" 2>/dev/null | grep LISTEN; then
+      echo -e "${RED}WARNING: Port $port is still in use after cleanup${NC}"
+      echo "You may need to manually kill the process occupying this port."
+    else
+      echo -e "${GREEN}Port $port is free${NC}"
     fi
   done
   
