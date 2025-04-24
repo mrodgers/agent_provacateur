@@ -85,3 +85,20 @@ get_service_status() {
 get_project_name() {
     echo "Agent Provocateur"
 }
+
+# Echo functions with colors for consistent output
+echo_info() {
+    echo -e "\033[0;34m[INFO]\033[0m $1"
+}
+
+echo_success() {
+    echo -e "\033[0;32m[SUCCESS]\033[0m $1"
+}
+
+echo_warning() {
+    echo -e "\033[0;33m[WARNING]\033[0m $1"
+}
+
+echo_error() {
+    echo -e "\033[0;31m[ERROR]\033[0m $1"
+}

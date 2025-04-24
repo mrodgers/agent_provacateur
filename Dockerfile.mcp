@@ -1,0 +1,23 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY src/ /app/src/
+COPY setup.py /app/
+
+# Install the package
+RUN pip install -e .
+
+# Set environment variables
+ENV PYTHONPATH=/app
+
+# Expose port
+EXPOSE 8000
+
+# Run the enhanced MCP server
+CMD ["python", "-m", "agent_provocateur", "mcp", "--host", "0.0.0.0"]
