@@ -13,8 +13,8 @@ These scripts provide command-line tools for development, service management, an
 - **`start_ap.sh`** - Unified service management script
   ```bash
   ./scripts/start_ap.sh start        # Start all services
-  ./scripts/start_ap.sh start mcp_server frontend  # Start specific services
-  ./scripts/start_ap.sh start web_search_mcp  # Start Web Search MCP server
+  ./scripts/start_ap.sh start document_service frontend  # Start specific services
+  ./scripts/start_ap.sh start graphrag_service  # Start GraphRAG service
   ./scripts/start_ap.sh stop         # Stop all services
   ./scripts/start_ap.sh status       # Check service status
   ./scripts/start_ap.sh status --watch # Watch status continuously
@@ -22,16 +22,16 @@ These scripts provide command-line tools for development, service management, an
   ./scripts/start_ap.sh ports        # Check for port conflicts
   ```
   
-- **`run_enhanced_mcp_server.sh`** - Enhanced MCP server with improved API documentation
+- **`run_enhanced_mcp_server.sh`** - Enhanced Document Service API with improved documentation
   ```bash
   ./scripts/run_enhanced_mcp_server.sh                 # Start with auto-detection of services (uses uv)
   ./scripts/run_enhanced_mcp_server.sh --port 8001     # Use a specific port
   ./scripts/run_enhanced_mcp_server.sh --entity-port 9585 --graphrag-port 9584  # Configure service ports
   ./scripts/run_enhanced_mcp_server.sh --host 0.0.0.0  # Bind to all interfaces
-  ./scripts/run_enhanced_mcp_server.sh --stop          # Stop the running enhanced MCP server
+  ./scripts/run_enhanced_mcp_server.sh --stop          # Stop the running enhanced server
   ```
   
-  This script launches the enhanced MCP server with improved API documentation and service integration:
+  This script launches the enhanced Document Service API with improved API documentation and service integration:
   1. Automatically detects Entity Detector and GraphRAG services
   2. Provides port conflict resolution
   3. Configures proxy endpoints for end-to-end workflow processing
@@ -53,7 +53,7 @@ These scripts provide command-line tools for development, service management, an
   ```bash
   ./scripts/ap.sh setup        # Create/update virtual environment
   ./scripts/ap.sh test         # Run tests
-  ./scripts/ap.sh server       # Start MCP server
+  ./scripts/ap.sh server       # Start Document Service API
   ./scripts/ap.sh workflow     # Run a sample workflow
   ./scripts/ap.sh web-search   # Test web search functionality
   ./scripts/ap.sh help         # Show help information
@@ -86,32 +86,65 @@ These scripts provide command-line tools for development, service management, an
   
   This script starts a dedicated server for UI component testing. It uses the `cleanup_all.sh` script to ensure a clean test environment, preventing "already declared" errors and port conflicts.
 
-- **`cleanup_all.sh`** - Comprehensive system cleanup
-  ```bash
-  ./scripts/cleanup_all.sh                # Force kill all running services
-  ./scripts/cleanup_all.sh --no-force     # Try graceful shutdown first
-  ./scripts/cleanup_all.sh --verbose      # Show detailed process information
-  ./scripts/cleanup_all.sh --no-clean-pid # Don't remove PID files
-  ```
-  
-  Use this script when services aren't stopping properly, port conflicts occur, or to ensure a clean environment before starting services.
-
 ### XML Tools
 
-- **`xml_cli.py`** - XML document management CLI
+#### Unified XML CLI (NEW)
+
+- **`unified_xml_cli.py`** - Comprehensive XML tool combining functionality from multiple scripts
   ```bash
-  ./scripts/xml_cli.py list                # List all XML documents
-  ./scripts/xml_cli.py get xml1            # Get XML document details
-  ./scripts/xml_cli.py get xml1 --content  # Show full content
-  ./scripts/xml_cli.py upload file.xml     # Upload a new XML document
+  # List all XML documents
+  ./scripts/unified_xml_cli.py list
+  
+  # Get a specific XML document
+  ./scripts/unified_xml_cli.py get DOC_ID [--content]
+  
+  # Upload a new XML document
+  ./scripts/unified_xml_cli.py upload XML_FILE [--title TITLE]
+  
+  # Get researchable nodes for a document
+  ./scripts/unified_xml_cli.py nodes DOC_ID
+  
+  # Analyze an XML file with XmlAgent
+  ./scripts/unified_xml_cli.py analyze XML_FILE
+  
+  # Extract entities with GraphRAG integration
+  ./scripts/unified_xml_cli.py entities DOC_ID
+  
+  # Extract Cisco commands from a document
+  ./scripts/unified_xml_cli.py commands DOC_ID [--summary]
+  
+  # Validate XML structure
+  ./scripts/unified_xml_cli.py validate --doc-id DOC_ID
+  ./scripts/unified_xml_cli.py validate --file XML_FILE
   ```
 
-- **`xml_agent_cli.py`** - XML Agent verification CLI
+#### Cisco XML Agent (NEW)
+
+- **`cisco_xml_agent.py`** - Specialized agent for Cisco command extraction
   ```bash
-  ./scripts/xml_agent_cli.py identify --file file.xml # Identify nodes
-  ./scripts/xml_agent_cli.py plan xml1                # Plan verification
-  ./scripts/xml_agent_cli.py verify xml1              # Verify XML document
+  # Extract configuration commands
+  ./scripts/cisco_xml_agent.py extract DOC_ID [--json]
+  
+  # Categorize commands by function
+  ./scripts/cisco_xml_agent.py categorize DOC_ID
+  
+  # Generate human-readable summaries
+  ./scripts/cisco_xml_agent.py summarize DOC_ID
+  
+  # Format commands for documentation
+  ./scripts/cisco_xml_agent.py format DOC_ID [--format markdown|html|json|text]
   ```
+
+#### Legacy XML Tools (DEPRECATED)
+
+These tools are maintained for backward compatibility but will be removed in a future release:
+
+- **`xml_cli.py`** - XML document management CLI (use `unified_xml_cli.py` instead)
+- **`xml_agent_cli.py`** - XML Agent verification CLI (use `unified_xml_cli.py` instead)
+- **`xml_command_agent.py`** - Cisco command extraction (use `cisco_xml_agent.py` instead)
+- **`extract_cisco_commands.py`** - Command extraction script (use `cisco_xml_agent.py extract` instead)
+
+### System Testing Scripts
 
 - **`test_system_e2e.sh`** - End-to-end system testing script
   ```bash
@@ -124,7 +157,12 @@ These scripts provide command-line tools for development, service management, an
   3. Research entities using GraphRAG
   4. Generate a result XML with research and entities
   
-  Requires all services (MCP server, entity detector, and GraphRAG) to be running.
+  Requires all services (Document Service, entity detector, and GraphRAG) to be running.
+
+- **`robust_system_test.sh`** - Enhanced system testing with resilience
+  ```bash
+  ./scripts/robust_system_test.sh          # Run robust system test with retry mechanisms
+  ```
 
 - **`mock_system_test.sh`** - Mock system testing script
   ```bash
@@ -180,7 +218,7 @@ These scripts provide command-line tools for development, service management, an
 ./scripts/start_ap.sh start
 
 # Alternatively, start specific services only
-./scripts/start_ap.sh start mcp_server frontend web_search_mcp
+./scripts/start_ap.sh start document_service frontend entity_detector_mcp
 
 # For development with custom frontend settings
 ./scripts/start_frontend.sh --debug --port 3001
@@ -197,7 +235,7 @@ These scripts provide command-line tools for development, service management, an
 # Monitor services continuously
 ./scripts/start_ap.sh status --watch
 
-# Use the enhanced MCP server with improved documentation
+# Use the enhanced Document Service API with improved documentation
 ./scripts/run_enhanced_mcp_server.sh
 
 # Access the enhanced API documentation at http://localhost:8000/docs
@@ -237,23 +275,32 @@ These scripts provide command-line tools for development, service management, an
 > - `start_with_web_search.sh` - Replaced by `start_ap.sh start web_search_mcp`
 > - `ap_web_search.sh` - Replaced by `ap.sh web-search`
 
-### XML Processing Workflow
+### XML Processing Workflow (NEW)
 
 ```bash
 # Start services
 ./scripts/start_ap.sh start
 
-# Upload XML document
-./scripts/xml_cli.py upload examples/sample.xml --analyze
+# Upload XML document with the unified CLI
+./scripts/unified_xml_cli.py upload examples/sample.xml --title "Sample"
 
 # Check uploaded documents
-./scripts/xml_cli.py list
+./scripts/unified_xml_cli.py list
 
-# Create verification plan
-./scripts/xml_agent_cli.py plan xml1
+# Get document details
+./scripts/unified_xml_cli.py get xml1
 
-# Run verification
-./scripts/xml_agent_cli.py verify xml1 --search-depth high
+# Get researchable nodes
+./scripts/unified_xml_cli.py nodes xml1
+
+# Extract entities with GraphRAG integration
+./scripts/unified_xml_cli.py entities xml1
+
+# For Cisco documents, extract commands
+./scripts/unified_xml_cli.py commands xml1 --summary
+
+# For advanced Cisco command processing
+./scripts/cisco_xml_agent.py categorize xml1
 
 # End-to-end system test (requires all services running)
 ./scripts/test_system_e2e.sh
@@ -261,6 +308,36 @@ These scripts provide command-line tools for development, service management, an
 # If services not running, use the mock test instead
 ./scripts/mock_system_test.sh
 ```
+
+### Legacy XML Workflow (DEPRECATED)
+
+```bash
+# Upload XML document (DEPRECATED - use unified_xml_cli.py instead)
+./scripts/xml_cli.py upload examples/sample.xml --analyze
+
+# Check uploaded documents (DEPRECATED - use unified_xml_cli.py instead)
+./scripts/xml_cli.py list
+
+# Create verification plan (DEPRECATED - use unified_xml_cli.py instead)
+./scripts/xml_agent_cli.py plan xml1
+
+# Run verification (DEPRECATED - use unified_xml_cli.py instead)
+./scripts/xml_agent_cli.py verify xml1 --search-depth high
+```
+
+## Migration Guide
+
+The following legacy scripts have been consolidated into new unified tools:
+
+- `xml_cli.py` → `unified_xml_cli.py list|get|upload`
+- `xml_agent_cli.py` → `unified_xml_cli.py analyze|entities`
+- `xml_command_agent.py` → `cisco_xml_agent.py`
+- `extract_cisco_commands.py` → `unified_xml_cli.py commands`
+
+Service names have also been updated for clarity:
+- `mcp_server` is now `document_service` (Document Service API)
+- `graphrag_mcp_py` is now `graphrag_service` (GraphRAG Service)
+- TypeScript GraphRAG implementation has been removed in favor of the Python version
 
 ## Extending Scripts
 
@@ -270,3 +347,4 @@ When adding new functionality:
 2. Follow the existing patterns for command-line argument parsing
 3. Document the new functionality in this README
 4. Use consistent error handling and user feedback
+5. Add new scripts to the unified interfaces where possible, rather than creating standalone scripts

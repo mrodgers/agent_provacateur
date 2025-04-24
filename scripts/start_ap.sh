@@ -19,4 +19,5 @@ chmod +x "$SCRIPT_DIR/all_services.py"
 ensure_tools
 
 # Pass all arguments to the Python service manager
+# Note: We've consolidated GraphRAG implementations to a single "graphrag_service"
 python "$SCRIPT_DIR/all_services.py" "$@"

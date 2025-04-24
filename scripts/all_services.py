@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 import platform
-import json
 import psutil
 import threading
 import socket
@@ -167,7 +166,7 @@ def check_service_custom(service):
             cwd=service.cwd,
         )
         return result.returncode == 0
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -410,7 +409,7 @@ def stop_service(service_name, services):
             )
             
             if remaining.stdout.strip() and int(remaining.stdout.strip()) > 0:
-                print(f"Warning: Some monitoring containers could not be removed")
+                print("Warning: Some monitoring containers could not be removed")
         except Exception as e:
             print(f"Error stopping monitoring containers: {e}")
     elif service.process and service.process.poll() is None:
@@ -659,13 +658,22 @@ def get_service_definitions():
             check_port=6379,
             required_commands=["redis-server", "redis-cli"]
         ),
-        "mcp_server": Service(
-            name="mcp_server",
+        "document_service": Service(
+            name="document_service",
             start_cmd=f"cd {PROJECT_ROOT} && ap-server --host 127.0.0.1 --port 8000",
             check_port=8000,
             check_cmd="ps aux | grep 'ap-server' | grep -v grep",
             depends_on=["monitoring", "redis"],
             required_commands=[]  # No external dependencies, part of our package
+        ),
+        "entity_detector_mcp": Service(
+            name="entity_detector_mcp",
+            start_cmd=f"cd {PROJECT_ROOT}/entity_detector_mcp && ./scripts/start.sh",
+            check_cmd="ps aux | grep -E 'node.*entity_detector_mcp/dist/index.js' | grep -v grep",
+            check_port=8082,
+            depends_on=[],  # Independent service
+            cwd=os.path.join(PROJECT_ROOT, "entity_detector_mcp"),
+            required_commands=["node", "npm"]
         ),
         "web_search_mcp": Service(
             name="web_search_mcp",
@@ -676,22 +684,23 @@ def get_service_definitions():
             # Requires Node.js to be installed
             required_commands=["node", "npm"]
         ),
-        "graphrag_mcp": Service(
-            name="graphrag_mcp",
-            start_cmd=f"cd {PROJECT_ROOT} && ./scripts/run_graphrag_mcp.sh",
-            check_cmd="ps aux | grep -E 'node.*graphrag_mcp/dist/index.js' | grep -v grep",
+# Removed TypeScript GraphRAG implementation in favor of Python implementation
+        "graphrag_service": Service(
+            name="graphrag_service",
+            start_cmd=f"cd {PROJECT_ROOT} && ./scripts/run_graphrag_mcp_py.sh",
+            check_cmd="ps aux | grep -E 'python.*graphrag_mcp_py.src' | grep -v grep",
             check_port=8083,
             depends_on=[],  # Independent service
             cwd=os.path.join(PROJECT_ROOT),
-            # Requires Node.js to be installed
-            required_commands=["node", "npm"]
+            # Requires Python to be installed
+            required_commands=["python3"]
         ),
         "frontend": Service(
             name="frontend",
             start_cmd=f"cd {PROJECT_ROOT}/frontend && python server.py --host 127.0.0.1 --port 3001 --backend-url http://localhost:8000",
             check_port=3001,
             check_cmd="ps aux | grep 'server.py.*port 3001' | grep -v grep",
-            depends_on=["mcp_server"],
+            depends_on=["document_service"],
             cwd=os.path.join(PROJECT_ROOT, "frontend"),
             required_commands=[]  # No external dependencies, part of our package
         ),
@@ -714,9 +723,9 @@ def get_running_services():
             proc_info = proc.info
             cmdline = ' '.join(proc_info['cmdline']) if proc_info['cmdline'] else ''
             
-            # Check for MCP server
+            # Check for Document Service
             if 'ap-server' in cmdline:
-                result['mcp_server'] = {
+                result['document_service'] = {
                     'pid': proc_info['pid'],
                     'cmdline': cmdline
                 }
@@ -729,7 +738,7 @@ def get_running_services():
                 }
                 
             # Check for Redis
-            if 'redis-server' in cmdline and not 'grep' in cmdline:
+            if 'redis-server' in cmdline and 'grep' not in cmdline:
                 result['redis'] = {
                     'pid': proc_info['pid'],
                     'cmdline': cmdline
@@ -752,7 +761,7 @@ def get_running_services():
             pass
     
     # Use additional methods to detect monitoring services (could be in containers)
-    if not 'monitoring' in result:
+    if 'monitoring' not in result:
         # Check for expected monitoring services ports
         prometheus_running = is_port_in_use(9090)
         pushgateway_running = is_port_in_use(9091)
@@ -774,7 +783,7 @@ def get_running_services():
     # Try container detection as a fallback
     try:
         compose_cmd, _ = detect_container_tools()
-        if compose_cmd and not 'monitoring' in result:
+        if compose_cmd and 'monitoring' not in result:
             # Check if monitoring containers are running using the appropriate compose command
             cmd = f"cd {PROJECT_ROOT}/monitoring && {compose_cmd} ps | grep -E 'prometheus|pushgateway|grafana' | grep -v 'Exit'"
             output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -848,7 +857,8 @@ def main():
     monitor_thread.start()
     
     if args.command == "start":
-        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp", "graphrag_mcp"]  # Default: Start core services
+        # Default: Start all core services (including entity detector for XML processing)
+        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp", "graphrag_mcp", "graphrag_mcp_py", "entity_detector_mcp"]
         for service_name in service_list:
             start_service(service_name, services, logs_dir)
         print_status_report(services)
@@ -860,19 +870,25 @@ def main():
         print_status_report(services)
     
     elif args.command == "restart":
-        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp", "graphrag_mcp"]
+        service_list = args.services if args.services else ["mcp_server", "frontend", "web_search_mcp", "graphrag_mcp", "graphrag_mcp_py", "entity_detector_mcp"]
         for service_name in service_list:
             stop_service(service_name, services)
             start_service(service_name, services, logs_dir)
         print_status_report(services)
     
     elif args.command == "status" or args.command is None:
-        if args.watch:
+        watch_mode = False
+        interval = 5
+        if args.command == "status" and hasattr(args, "watch"):
+            watch_mode = args.watch
+            interval = args.interval if hasattr(args, "interval") else 5
+            
+        if watch_mode:
             try:
                 while True:
                     os.system("clear" if platform.system() != "Windows" else "cls")
                     print_status_report(services)
-                    time.sleep(args.interval)
+                    time.sleep(interval)
             except KeyboardInterrupt:
                 print("\nStopping status monitor...")
         else:
