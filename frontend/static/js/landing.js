@@ -206,6 +206,8 @@ async function initLandingPage(rootElement) {
                         <div id="system-info" class="text-xs text-gray-400 flex items-center space-x-4">
                             <span id="version-info">Version: 0.1.0</span>
                             <span class="text-gray-300">|</span>
+                            <span id="build-number" class="font-mono text-amber-400" title="Build identifier">Build: loading...</span>
+                            <span class="text-gray-300">|</span>
                             <span id="ui-port">UI Port: <span class="font-mono">${window.location.port || '80'}</span></span>
                             <span class="text-gray-300">|</span>
                             <span id="backend-url">API: <span class="font-mono">${window.BACKEND_URL}</span></span>
@@ -244,6 +246,42 @@ function setupLandingPageListeners() {
     document.getElementById('check-ports-btn').addEventListener('click', function() {
         checkSystemPorts();
     });
+    
+    // Fetch system info to display build number and version
+    fetchSystemInfo();
+}
+
+// Function to fetch system info including build number
+async function fetchSystemInfo() {
+    try {
+        // Get system info
+        const systemInfo = await window.apApi.getSystemInfo();
+        
+        // Update version information
+        if (systemInfo.version) {
+            document.getElementById('version-info').textContent = `Version: ${systemInfo.version}`;
+        }
+        
+        // Update build number with highlighting
+        if (systemInfo.build_number) {
+            const buildElement = document.getElementById('build-number');
+            buildElement.textContent = `Build: ${systemInfo.build_number}`;
+            buildElement.classList.add('text-amber-400', 'font-mono');
+            
+            // Add tooltip with timestamp info
+            const timestamp = systemInfo.build_number.split('.')[0];
+            if (timestamp && timestamp.length === 8) {
+                const year = timestamp.substring(0, 4);
+                const month = timestamp.substring(4, 6);
+                const day = timestamp.substring(6, 8);
+                const formattedDate = `${year}-${month}-${day}`;
+                buildElement.title = `Build from ${formattedDate}`;
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching system info:', error);
+        document.getElementById('build-number').textContent = 'Build: unknown';
+    }
 }
 
 // Function to check system ports and display results
@@ -332,6 +370,18 @@ async function checkSystemPorts() {
                         </div>
                         <div class="text-xs text-gray-500 mt-1">
                             Agent Provocateur system version
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col border-b pb-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Build Number</span>
+                            <span class="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-mono">
+                                ${systemInfo.build_number || 'unknown'}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            UI build identifier (format: YYYYMMDD.n)
                         </div>
                     </div>
                 

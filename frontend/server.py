@@ -18,12 +18,10 @@ import logging
 import os
 import sys
 import uuid
-import shutil
-from typing import Optional
 from datetime import datetime
 
 import uvicorn
-from fastapi import FastAPI, Request, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, Request, UploadFile
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -148,6 +146,31 @@ async def fallback(request: Request):
         "fallback.html", {"request": request, "backend_url": BACKEND_API_URL}
     )
 
+@app.get("/component-test", response_class=HTMLResponse)
+async def component_test(request: Request):
+    """Render the component library test page."""
+    return templates.TemplateResponse(
+        "component-test.html", {"request": request, "backend_url": BACKEND_API_URL}
+    )
+    
+@app.get("/new", response_class=HTMLResponse)
+async def index_new(request: Request):
+    """Render the new enhanced landing page."""
+    return templates.TemplateResponse(
+        "index-new.html", {
+            "request": request, 
+            "backend_url": BACKEND_API_URL,
+            "page_script": "landing.js"
+        }
+    )
+    
+@app.get("/test-runner", response_class=HTMLResponse)
+async def test_runner(request: Request):
+    """Render the component library test runner page."""
+    return templates.TemplateResponse(
+        "test-runner.html", {"request": request, "backend_url": BACKEND_API_URL}
+    )
+
 
 @app.get("/api/health")
 async def health_check():
@@ -161,8 +184,18 @@ async def system_info(request: Request):
     try:
         import importlib.metadata
         version = importlib.metadata.version("agent_provocateur")
-    except:
+    except (importlib.metadata.PackageNotFoundError, ImportError):
         version = "0.1.0"  # Fallback version if package info isn't available
+    
+    # Get build number from file
+    build_number = "unknown"
+    build_number_path = os.path.join(base_dir, "build_number.txt")
+    if os.path.exists(build_number_path):
+        try:
+            with open(build_number_path, "r") as f:
+                build_number = f.read().strip()
+        except Exception as e:
+            logger.error(f"Error reading build number: {str(e)}")
     
     # Get server information
     port = request.url.port
@@ -189,6 +222,9 @@ async def system_info(request: Request):
         3000: "Grafana",
         3001: "Frontend UI",
         8000: "MCP Server API", 
+        8082: "Entity Detector MCP",
+        8083: "Web Search MCP",
+        8084: "GraphRAG MCP",
         9090: "Prometheus",
         9091: "Pushgateway"
     }
@@ -205,8 +241,8 @@ async def system_info(request: Request):
             if result == 0:
                 in_use = True
             s.close()
-        except:
-            pass
+        except (socket.error, OSError):
+            in_use = True
         ports_status[port_num] = {
             "service": service_name,
             "in_use": in_use
@@ -214,6 +250,7 @@ async def system_info(request: Request):
         
     return {
         "version": version,
+        "build_number": build_number,
         "ui_port": port,
         "ui_host": host,
         "backend_url": BACKEND_API_URL,
@@ -564,7 +601,7 @@ async def upload_document(request: Request):
             "doc_type": "xml",
             "created_at": datetime.now().isoformat()
         }
-        logger.info(f"Prepared payload for backend API")
+        logger.info("Prepared payload for backend API")
         
         # Send the document to the backend API
         try:
@@ -597,16 +634,46 @@ async def upload_document(request: Request):
                     
                     # Get the document ID from the response
                     try:
-                        backend_response = await response.json()
+                        # Different httpx versions might return json in different ways
+                        # Some versions: response.json() is callable
+                        # Other versions: response.json is already the parsed object
+                        # We need to handle both cases
+                        
+                        backend_response = None
+                        
+                        # First try direct access (response.json might already be parsed)
+                        if hasattr(response, 'json') and not callable(getattr(response, 'json')):
+                            backend_response = response.json
+                            logger.info(f"Using direct json property, type: {type(backend_response)}")
+                        
+                        # If not a dict or not found, try calling the method
+                        if not isinstance(backend_response, dict):
+                            try:
+                                # Try to call json() as a method
+                                if callable(getattr(response, 'json', None)):
+                                    backend_response = await response.json()
+                                    logger.info(f"Using json() method, type: {type(backend_response)}")
+                            except Exception as method_err:
+                                logger.warning(f"Error calling json() method: {method_err}")
+                        
+                        # If still not successful, try text parsing
+                        if not isinstance(backend_response, dict):
+                            text_response = await response.text()
+                            logger.info(f"Using text parsing, content: {text_response[:100]}...")
+                            import json
+                            backend_response = json.loads(text_response)
+                        
+                        # Get the doc_id from the response
                         backend_doc_id = backend_response.get("doc_id", doc_id)
+                        logger.info(f"Extracted doc_id: {backend_doc_id}")
+                        
                     except Exception as json_err:
                         logger.warning(f"Could not parse JSON response: {str(json_err)}")
-                        # Try to get response as text
-                        text_response = await response.text()
-                        logger.info(f"Response text: {text_response}")
-                        
-                        # Try to parse the response text as JSON 
+                        # Try to get response as text one last time
                         try:
+                            text_response = await response.text()
+                            logger.info(f"Response text as fallback: {text_response}")
+                            
                             import json
                             text_json = json.loads(text_response)
                             backend_doc_id = text_json.get("doc_id", doc_id)
@@ -704,13 +771,33 @@ async def upload_document(request: Request):
 async def get_js(script_name: str):
     """Serve JavaScript files directly."""
     js_path = os.path.join(base_dir, "static", "js", script_name)
+    
     logger.info(f"Serving JS file: {js_path}")
     
     if not os.path.exists(js_path):
         logger.error(f"JS file not found: {js_path}")
-        return {"error": "File not found"}, 404
+        return JSONResponse(
+            status_code=404,
+            content={"error": "File not found"}
+        )
     
-    return FileResponse(js_path, media_type="application/javascript")
+    return FileResponse(js_path, media_type='application/javascript')
+    
+@app.get("/tests/{script_name}")
+async def get_test_script(script_name: str):
+    """Serve test scripts directly."""
+    script_path = os.path.join(os.path.dirname(base_dir), "tests", script_name)
+    
+    logger.info(f"Serving test script: {script_path}")
+    
+    if not os.path.exists(script_path):
+        logger.error(f"Test script not found: {script_path}")
+        return JSONResponse(
+            status_code=404,
+            content={"error": "File not found"}
+        )
+    
+    return FileResponse(script_path, media_type='application/javascript')
 
 
 def main() -> int:
