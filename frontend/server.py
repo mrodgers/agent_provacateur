@@ -9,7 +9,7 @@ Run this server with:
 Options:
     --host: Host to bind the server to (default: 127.0.0.1)
     --port: Port to bind the server to (default: 3000)
-    --backend-url: URL of the backend API (default: http://localhost:8000)
+    --backend-url: URL of the backend API (default: http://localhost:8111)
     --reload: Enable auto-reload on code changes
 """
 
@@ -66,6 +66,12 @@ else:
 # Mount static files directory
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Mount tests directory
+tests_dir = os.path.join(base_dir, "tests")
+if not os.path.exists(tests_dir):
+    os.makedirs(tests_dir)
+app.mount("/tests", StaticFiles(directory=tests_dir), name="tests")
+
 # Setup templates
 templates = Jinja2Templates(directory=templates_dir)
 
@@ -79,7 +85,7 @@ app.add_middleware(
 )
 
 # Backend API URL
-BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:8000")
+BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:8111")
 
 # Create temp uploads directory if not exists
 UPLOAD_DIR = os.path.join(base_dir, "uploads")
@@ -171,6 +177,13 @@ async def test_runner(request: Request):
         "test-runner.html", {"request": request, "backend_url": BACKEND_API_URL}
     )
 
+@app.get("/api-test-runner", response_class=HTMLResponse)
+async def api_test_runner(request: Request):
+    """Render the API test runner page."""
+    return templates.TemplateResponse(
+        "api_test_runner.html", {"request": request, "backend_url": BACKEND_API_URL}
+    )
+
 
 @app.get("/api/health")
 async def health_check():
@@ -218,20 +231,31 @@ async def system_info(request: Request):
         backend_status = f"unavailable: {str(e)}"
     
     # Get common ports in use
-    common_ports = {
-        3000: "Grafana",
+    backend_port = int(BACKEND_API_URL.split(":")[-1])
+    
+    # Core ports that are always required
+    core_ports = {
         3001: "Frontend UI",
-        8000: "MCP Server API", 
+        backend_port: "MCP Server API",
+        6111: "Redis"
+    }
+    
+    # Optional ports that may be required based on configuration
+    optional_ports = {
+        7111: "Ollama",
         8082: "Entity Detector MCP",
         8083: "Web Search MCP",
         8084: "GraphRAG MCP",
-        9090: "Prometheus",
+        3111: "Grafana",
+        9111: "Prometheus",
         9091: "Pushgateway"
     }
-    
-    # Check which ports are in use (simple check for the UI)
+
+    # Check which ports are in use
     ports_status = {}
-    for port_num, service_name in common_ports.items():
+    
+    # Check core ports
+    for port_num, service_name in core_ports.items():
         in_use = False
         try:
             import socket
@@ -245,7 +269,27 @@ async def system_info(request: Request):
             in_use = True
         ports_status[port_num] = {
             "service": service_name,
-            "in_use": in_use
+            "in_use": in_use,
+            "required": True
+        }
+    
+    # Check optional ports
+    for port_num, service_name in optional_ports.items():
+        in_use = False
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.2)  # Very short timeout for quick check
+            result = s.connect_ex(('127.0.0.1', port_num))
+            if result == 0:
+                in_use = True
+            s.close()
+        except (socket.error, OSError):
+            in_use = True
+        ports_status[port_num] = {
+            "service": service_name,
+            "in_use": in_use,
+            "required": False  # Optional ports are not required by default
         }
         
     return {
@@ -266,7 +310,8 @@ async def debug_info(request: Request):
         {
             "path": route.path,
             "name": route.name,
-            "methods": [method for method in route.methods] if route.methods else [],
+            "type": route.__class__.__name__,
+            "methods": [method for method in route.methods] if hasattr(route, 'methods') and route.methods else []
         }
         for route in app.routes
     ]
@@ -634,57 +679,29 @@ async def upload_document(request: Request):
                     
                     # Get the document ID from the response
                     try:
-                        # Different httpx versions might return json in different ways
-                        # Some versions: response.json() is callable
-                        # Other versions: response.json is already the parsed object
-                        # We need to handle both cases
+                        # Get response text first
+                        response_text = await response.text()
+                        logger.info(f"Response text: {response_text}")
                         
-                        backend_response = None
-                        
-                        # First try direct access (response.json might already be parsed)
-                        if hasattr(response, 'json') and not callable(getattr(response, 'json')):
-                            backend_response = response.json
-                            logger.info(f"Using direct json property, type: {type(backend_response)}")
-                        
-                        # If not a dict or not found, try calling the method
-                        if not isinstance(backend_response, dict):
-                            try:
-                                # Try to call json() as a method
-                                if callable(getattr(response, 'json', None)):
-                                    backend_response = await response.json()
-                                    logger.info(f"Using json() method, type: {type(backend_response)}")
-                            except Exception as method_err:
-                                logger.warning(f"Error calling json() method: {method_err}")
-                        
-                        # If still not successful, try text parsing
-                        if not isinstance(backend_response, dict):
-                            text_response = await response.text()
-                            logger.info(f"Using text parsing, content: {text_response[:100]}...")
-                            import json
-                            backend_response = json.loads(text_response)
-                        
-                        # Get the doc_id from the response
+                        # Parse JSON from text
+                        import json
+                        backend_response = json.loads(response_text)
                         backend_doc_id = backend_response.get("doc_id", doc_id)
                         logger.info(f"Extracted doc_id: {backend_doc_id}")
-                        
                     except Exception as json_err:
                         logger.warning(f"Could not parse JSON response: {str(json_err)}")
-                        # Try to get response as text one last time
-                        try:
-                            text_response = await response.text()
-                            logger.info(f"Response text as fallback: {text_response}")
-                            
-                            import json
-                            text_json = json.loads(text_response)
-                            backend_doc_id = text_json.get("doc_id", doc_id)
-                            logger.info(f"Successfully extracted doc_id from text response: {backend_doc_id}")
-                        except Exception as text_json_err:
-                            logger.warning(f"Could not parse response text as JSON: {str(text_json_err)}")
-                            backend_doc_id = doc_id
+                        backend_doc_id = doc_id
                     
                     # Return success response
                     logger.info(f"Document successfully uploaded to backend with ID: {backend_doc_id}")
-                    return {"success": True, "doc_id": backend_doc_id, "title": title}
+                    return JSONResponse(
+                        status_code=200,
+                        content={
+                            "id": backend_doc_id,
+                            "title": title,
+                            "success": True
+                        }
+                    )
                     
                 except httpx.RequestError as e:
                     logger.error(f"HTTP request error: {str(e)}")
@@ -786,7 +803,7 @@ async def get_js(script_name: str):
 @app.get("/tests/{script_name}")
 async def get_test_script(script_name: str):
     """Serve test scripts directly."""
-    script_path = os.path.join(os.path.dirname(base_dir), "tests", script_name)
+    script_path = os.path.join(base_dir, "tests", script_name)
     
     logger.info(f"Serving test script: {script_path}")
     
@@ -810,7 +827,7 @@ def main() -> int:
         "--port", type=int, default=3001, help="Port to bind the server to (default: 3001, changed from 3000 to avoid Grafana conflicts)"
     )
     parser.add_argument(
-        "--backend-url", default="http://localhost:8000", help="Backend API URL"
+        "--backend-url", default="http://localhost:8111", help="Backend API URL"
     )
     parser.add_argument(
         "--reload", action="store_true", help="Auto-reload on code changes"
