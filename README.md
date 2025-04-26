@@ -1,642 +1,480 @@
-# Agent Provocateur
+# Agent Provocateur System
 
-A Python library for developing, benchmarking, and deploying AI agents for research tasks. The system enables modular agents to collaboratively perform end-to-end research against structured and unstructured data sources.
+A containerized system for document processing and analysis with a modern web interface.
 
-## Features
+## Prerequisites
 
-- **MCP Server Mock**: Simulates tool interactions (JIRA, Document, PDF, Search) with configurable latency and error injection
-- **MCP Client SDK**: Type-safe Python client for interacting with the MCP server
-- **CLI Interface**: Command-line tools for interacting with the server
-- **Agent-to-Agent (A2A) Communication**: Structured messaging system for agent coordination and task delegation with reliable deduplication
-- **Agent Framework**: Base classes and utilities for building collaborative agent systems
-- **LLM Integration**: Support for multiple LLM providers including local Ollama models and Cisco's BridgeIT platform
-- **Document Types**: Support for multiple document types (text, PDF, image, code, structured data, XML)
-- **Verification System**: Advanced verification for XML claims and statements with confidence scoring
-- **Source Attribution**: Comprehensive source tracking for all AI-generated content with confidence scores
-- **GraphRAG**: Graph-based retrieval-augmented generation for enhanced source attribution and entity extraction, with support for XML, Markdown, and text documents
-- **Goal Refinement**: Intelligent breaking down of high-level goals into structured tasks mapped to agent capabilities
-- **Web Search**: Integrated web search with multiple provider support (Brave, Google, Bing) and source attribution
-- **Prometheus Metrics**: Built-in monitoring with Prometheus metrics and Grafana dashboards
-- **Web UI**: Interactive interface for XML document processing and research
+- Podman (not Docker)
+- Python 3.8 or higher
+- Node.js 18 or higher
+- Redis server
+- uv (Python package manager)
+- ruff (Python linter)
 
-## Installation
+## Initial Setup
 
+1. **Create required directories:**
+   ```bash
+   mkdir -p logs data
+   ```
+
+2. **Install uv and ruff:**
+   ```bash
+   # Install uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Install ruff
+   uv pip install ruff
+   ```
+
+3. **Set up Python environment:**
+   ```bash
+   # Create and activate virtual environment
+   python -m venv venv
+   source venv/bin/activate  # On Unix/macOS
+   # or
+   .\venv\Scripts\activate  # On Windows
+   
+   # Install dependencies using uv
+   uv pip install -e .[redis]
+   ```
+
+4. **Set up Frontend:**
+   ```bash
+   # Install Node.js dependencies
+   cd frontend
+   npm install
+   
+   # Build API client
+   npm run build:api
+   
+   # Start frontend in development mode
+   npm run dev
+   ```
+
+5. **Start Redis:**
+   ```bash
+   # On macOS with Homebrew
+   brew services start redis
+   
+   # On Linux
+   sudo systemctl start redis
+   
+   # Or using Podman
+   podman run -d --name redis -p 6379:6379 redis:latest
+   ```
+
+## Architecture
+
+Tested using Podman, NOT docker.
+
+### Core Services
+- **MCP Server** (Port 8000): Main control server handling document processing
+- **Redis** (Port 6379): Cache and message broker
+
+## Port Management
+
+The system uses a consistent port configuration for all services:
+
+### Service Ports
+- Frontend: Port 4001 (host) → 3001 (container)
+- MCP Server: Port 4002 (host) → 8000 (container)
+- Redis: Port 4003 (host) → 6379 (container)
+- Ollama: Port 4004 (host) → 11434 (container)
+- Grafana: Port 4005 (host) → 3000 (container)
+- Prometheus: Port 4006 (host) → 9090 (container)
+
+### Port Configuration
+
+1. **Frontend**
+   - Port: 4001:3001
+   - Health Check: `http://localhost:4001/api/health`
+   - Configuration: Set in `docker-compose.yml`
+
+2. **MCP Server**
+   - Port: 4002:8000
+   - Health Check: `http://localhost:4002/api/health`
+   - Configuration: Set in `docker-compose.yml`
+
+3. **Redis**
+   - Port: 4003:6379
+   - Access: `localhost:4003`
+   - Configuration: Set in `docker-compose.yml`
+
+4. **Ollama**
+   - Port: 4004:11434
+   - Access: `localhost:4004`
+   - Configuration: Set in `docker-compose.yml`
+
+5. **Grafana**
+   - Port: 4005:3000
+   - Access: `http://localhost:4005`
+   - Default admin password: `agent_provocateur`
+   - Configuration: Set in `docker-compose.yml`
+
+6. **Prometheus**
+   - Port: 4006:9090
+   - Access: `http://localhost:4006`
+   - Configuration: Set in `docker-compose.yml`
+
+### Port Validation
+
+To check if all required ports are available:
 ```bash
-# Using the unified script (recommended)
-./scripts/ap.sh setup
-
-# Basic installation with pip
-pip install -e ".[dev]"
-
-# With LLM support (Ollama)
-pip install -e ".[dev,llm]"
-
-# With XML support
-pip install -e ".[dev,xml]"
-
-# With monitoring support (Prometheus)
-pip install -e ".[dev,monitoring]"
-
-# With BridgeIT support
-pip install -e ".[dev,bridgeit]"
-
-# With frontend support
-pip install -e ".[dev,frontend]"
-
-# With web search support
-pip install -e ".[dev,websearch]"
-
-# With GraphRAG support
-pip install -e ".[dev,graphrag]"
-
-# With all features
-pip install -e ".[dev,llm,bridgeit,redis,monitoring,xml,frontend,websearch,graphrag]"
+# Check all required ports
+for port in 4001 4002 4003 4004 4005 4006; do
+    if lsof -i :$port > /dev/null 2>&1; then
+        echo "Port $port is in use"
+    else
+        echo "Port $port is available"
+    fi
+done
 ```
 
-## Service Management
+### Port Conflict Resolution
 
-All Agent Provocateur services can be managed using the unified service script:
+If you encounter port conflicts:
+1. Check which process is using the port:
+   ```bash
+   lsof -i :<port_number>
+   ```
+2. Either stop the conflicting process or modify the port mapping in `docker-compose.yml`
+3. For development, you can use different port ranges by modifying the port mappings in `docker-compose.yml`
 
-```bash
-# Start all services (monitoring, redis, mcp_server, frontend, web_search_mcp)
-./scripts/start_ap.sh start
+## Quick Start
 
-# Start specific services
-./scripts/start_ap.sh start mcp_server frontend
+The system uses `podman-compose` to manage all services. Do not start services individually unless specifically needed for development.
 
-# Start web search
-./scripts/start_ap.sh start web_search_mcp
+1. **Start all services:**
+   ```bash
+   # First, ensure no containers are running to avoid port conflicts
+   podman rm -f $(podman ps -aq)
+   
+   # Start the full stack
+   podman-compose up -d
+   ```
 
-# Start GraphRAG MCP server (TypeScript implementation)
-./scripts/start_ap.sh start graphrag_mcp
+2. **Verify services are running:**
+   ```bash
+   # Check container status
+   podman ps
+   
+   # Verify frontend health
+   curl http://localhost:4001/api/health
+   
+   # Verify backend health
+   curl http://localhost:4002/api/health
+   ```
 
-# Start GraphRAG MCP server (Python implementation with FAISS)
-./scripts/start_ap.sh start graphrag_mcp_py
+3. **Access the services:**
+   - Frontend UI: http://localhost:4001
+   - Backend API: http://localhost:4002
+   - Grafana Dashboard: http://localhost:4005 (admin password: agent_provocateur)
+   - Prometheus Metrics: http://localhost:4006
 
-# Check status of all services
-./scripts/start_ap.sh status
+4. **Stop all services:**
+   ```bash
+   podman-compose down
+   ```
 
-# Continuously monitor service status
-./scripts/start_ap.sh status --watch
+## Starting and Testing Services
 
-# Restart services
-./scripts/start_ap.sh restart
+### Manual Service Startup
 
-# Stop all services
-./scripts/start_ap.sh stop
-```
+If you need to start services individually for development or testing:
 
-### LLM Provider Setup
+1. **Start Redis:**
+   ```bash
+   # Start Redis on port 6111
+   redis-server --port 6111
+   
+   # Verify Redis is running
+   redis-cli -p 6111 ping
+   ```
 
-Agent Provocateur supports multiple LLM providers that can be used interchangeably:
+2. **Start MCP Server:**
+   ```bash
+   # Start the MCP server
+   python -m agent_provocateur.mcp_server
+   
+   # Verify MCP server is running
+   curl http://localhost:4002/api/health
+   ```
 
-### Available Providers
+3. **Start Frontend:**
+   ```bash
+   # Start the frontend server
+   cd frontend
+   python server.py --port 4001 --backend-url http://localhost:4002
+   
+   # Verify frontend is running
+   curl http://localhost:4001/api/health
+   ```
 
-| Provider | Description | Installation | Documentation |
-|----------|-------------|--------------|---------------|
-| Mock | Built-in fallback provider for testing | Default | N/A |
-| Ollama | Local models with Ollama | `pip install -e ".[llm]"` | [Ollama API](docs/api/OLLAMA_API.md) |
-| BridgeIT | Cisco's Azure OpenAI gateway | `pip install -e ".[bridgeit]"` | [BridgeIT API](docs/api/BRIDGEIT_API.md) |
+### Testing Service Connectivity
 
-### Ollama Setup
+1. **Test Frontend API Endpoints:**
+   ```bash
+   # Health check
+   curl http://localhost:4001/api/health
+   
+   # System info
+   curl http://localhost:4001/api/info
+   
+   # Debug configuration
+   curl http://localhost:4001/api/debug/config
+   
+   # Document list
+   curl http://localhost:4001/api/documents
+   ```
 
-To use Ollama as an LLM provider:
+2. **Test Backend API Endpoints:**
+   ```bash
+   # Health check
+   curl http://localhost:4002/api/health
+   
+   # System status
+   curl http://localhost:4002/api/system/status
+   
+   # Document list
+   curl http://localhost:4002/documents
+   ```
 
-1. Install Ollama from [ollama.com/download](https://ollama.com/download)
-2. Pull a model: `ollama pull llama3`
-3. Make sure Ollama is running: `ollama serve`
-4. Install the Python package: `pip install -e ".[llm]"`
+3. **Test Redis Connection:**
+   ```bash
+   # Test Redis connection
+   redis-cli -p 4003 ping
+   
+   # Check Redis info
+   redis-cli -p 4003 info
+   ```
 
-### BridgeIT Setup
+### Troubleshooting Service Issues
 
-To use Cisco's BridgeIT platform as an LLM provider:
+1. **Port Conflicts:**
+   ```bash
+   # Check if ports are in use
+   lsof -i :4001  # Frontend
+   lsof -i :4002  # Backend
+   lsof -i :4003  # Redis
+   
+   # Kill processes using ports if needed
+   kill -9 $(lsof -t -i:4001)
+   kill -9 $(lsof -t -i:4002)
+   kill -9 $(lsof -t -i:4003)
+   ```
 
-1. Install the required dependencies: `pip install -e ".[bridgeit]"`
-2. Create a `.env` file in your project root with the following environment variables:
+2. **Service Logs:**
+   ```bash
+   # Check frontend logs
+   tail -f frontend/logs/server.log
+   
+   # Check backend logs
+   tail -f logs/mcp_server.log
+   
+   # Check Redis logs
+   tail -f /var/log/redis/redis.log
+   ```
 
-```bash
-# Required variables
-AZURE_OPENAI_CLIENT_ID=your_client_id
-AZURE_OPENAI_CLIENT_SECRET=your_client_secret
-BRIDGEIT_APP_KEY=your_app_key
+3. **Common Issues:**
+   - If frontend shows "Backend Unavailable": Check if MCP server is running
+   - If document upload fails: Check Redis connection
+   - If services can't connect: Verify port mappings in config/ports.json
 
-# Optional variables with defaults
-BRIDGEIT_API_VERSION=2024-07-01-preview
-BRIDGEIT_TOKEN_URL=https://id.cisco.com/oauth2/default/v1/token
-BRIDGEIT_LLM_ENDPOINT=https://chat-ai.cisco.com
-BRIDGEIT_DEPLOYMENT_NAME=gpt-4o-mini
-```
+### Service Dependencies
 
-> **Note on bridgeit.py**: The original `bridgeit.py` file in the root directory is a reference implementation. Its core functionality has been integrated into the Agent Provocateur architecture in `src/agent_provocateur/llm_service.py`. You may keep or remove the original file, as it's not used by the core system.
+The system has the following service dependencies:
 
-For detailed development instructions, see [Development Guide](docs/development/DEVELOPMENT.md).
+1. **Required Services:**
+   - Frontend (4001) → MCP Server (4002)
+   - MCP Server (4002) → Redis (4003)
 
-## Project Structure
+2. **Optional Services:**
+   - Ollama (7111) - For LLM features
+   - Grafana (3111) - For monitoring
+   - Prometheus (9111) - For metrics
 
-```
-agent_provocateur/
-├── docs/                       # Documentation
-│   ├── architecture/           # Architecture docs
-│   ├── api/                    # API docs
-│   ├── development/            # Development guides
-│   ├── guides/                 # User guides
-│   ├── implementation/         # Implementation details
-│   └── README.md               # Documentation index
-├── examples/                   # Example files
-│   ├── sample.xml              # Sample XML document
-│   └── sample_rules.json       # Sample verification rules
-├── frontend/                   # Web UI 
-│   ├── static/                 # Static assets
-│   ├── templates/              # HTML templates
-│   └── server.py               # Frontend server
-├── scripts/                    # CLI and utility scripts
-│   ├── ap.sh                   # Main CLI script
-│   ├── start_ap.sh             # Unified service manager
-│   ├── all_services.py         # Service manager implementation
-│   ├── xml_cli.py              # XML document CLI
-│   └── xml_agent_cli.py        # XML agent CLI
-├── src/                        # Source code
-│   └── agent_provocateur/      # Package directory
-├── tests/                      # Test directory
-│   └── test_data/              # Test data
-├── monitoring/                 # Monitoring configuration
-└── README.md                   # This file
-```
+Start services in this order:
+1. Redis
+2. MCP Server
+3. Frontend
+4. Optional services (if needed)
 
-## Document Types
+## Testing
 
-Agent Provocateur supports multiple document types:
+### System Testing
 
-### Text Documents (DocumentContent)
-- Markdown and HTML content
-- Text analysis capabilities
-- Format: Markdown with optional HTML
+1. **Pre-test Setup:**
+   ```bash
+   # Clear any running containers
+   podman rm -f $(podman ps -aq)
+   
+   # Start fresh stack
+   podman-compose up -d
+   ```
 
-### PDF Documents (PdfDocument)
-- Page-by-page text extraction
-- Metadata support
-- URLs for source tracking
+2. **Port Validation:**
+   ```bash
+   # Run port validation script
+   ./scripts/validate_ports.sh
+   ```
 
-### Image Documents (ImageDocument)
-- Image metadata (dimensions, format)
-- Alt text and captions
-- Source URL tracking
+3. **Health Checks:**
+   ```bash
+   # Check frontend health
+   curl http://localhost:4001/api/health
+   
+   # Check backend health
+   curl http://localhost:4002/api/health
+   
+   # Check Redis connection
+   curl http://localhost:4003/ping
+   ```
 
-### Code Documents (CodeDocument)
-- Source code with language identification
-- Line counting and code metrics
-- Support for syntax highlighting
+4. **Document Processing Test:**
+   ```bash
+   # Upload test document
+   curl -X POST -F "file=@test.xml" http://localhost:4002/xml/upload
+   
+   # List documents
+   curl http://localhost:4002/api/documents
+   ```
 
-### Structured Data Documents (StructuredDataDocument)
-- JSON, YAML, and other structured formats
-- Schema validation options
-- Data exploration capabilities
+### Component Testing
 
-### XML Documents (XmlDocument)
-- XML content with namespace support
-- Researchable node identification
-- Verification planning and execution
-- Confidence scoring for claims and statements
-- Source attribution with traceable information sources
+When testing individual components, ensure other services are stopped first:
 
-For more details on document types, see the [Document Types Guide](docs/guides/document_types.md).
+1. **Test MCP Server Only:**
+   ```bash
+   # Stop all services
+   podman-compose down
+   
+   # Start MCP server
+   ./scripts/manage_mcp.sh start
+   
+   # Check status
+   ./scripts/manage_mcp.sh status
+   ```
+
+2. **Test Frontend Only:**
+   ```bash
+   # Start frontend container
+   podman run -d -p 4001:3001 agent-provocateur/frontend
+   ```
+
+### Common Issues
+
+1. **Port Conflicts:**
+   - Always use `podman rm -f $(podman ps -aq)` before starting services
+   - Never mix individual service starts with podman-compose
+   - Use `./scripts/validate_ports.sh` to check port availability
+
+2. **Connection Issues:**
+   - Ensure backend URL is correctly set to http://localhost:4002
+   - Check container networking with `podman network inspect podman`
+   - Verify all services are healthy with `podman ps`
+
+3. **Data Persistence:**
+   - Check volume mounts in `docker-compose.yml`
+   - Verify data directories exist: `logs/`, `data/`
+   - Check file permissions on mounted volumes
 
 ## Development
 
-```bash
-# Run tests with standard Python
-pytest                     # Run all tests with pytest
-pytest -v                  # Run with verbose output
-python -m pytest --cov=agent_provocateur  # Run with coverage report
+For development work:
 
-# Run tests with uv
-uv run pytest              # Run all tests with pytest via uv
-uv run pytest -v           # Run with verbose output
-uv run python -m pytest    # Run pytest as a module
-uv run pytest --cov=agent_provocateur  # Run with coverage
-uv run pytest tests/test_web_search_integration.py  # Test specific file
-uv run pytest tests/test_web_search_integration.py::TestWebSearchIntegration::test_research_entities_with_web_search  # Test specific function
+1. **Local Development:**
+   ```bash
+   # Start dependencies only
+   podman-compose up -d redis grafana prometheus
+   
+   # Run frontend locally
+   cd frontend && python server.py
+   
+   # Run backend locally
+   cd backend && python -m agent_provocateur.mcp_server.__main__
+   ```
 
-# Advanced uv test options
-uv run --group dev pytest  # Run with dev dependencies
-uv run --with pytest-cov pytest --cov=agent_provocateur  # Add extra packages on-the-fly
-uv run -p 3.9 pytest       # Use specific Python version
+2. **Code Changes:**
+   ```bash
+   # Format code
+   ruff format .
+   
+   # Run linter
+   ruff check .
+   
+   # Apply fixes
+   ruff check --fix .
+   ```
 
-# Type checking
-mypy src
+## API Endpoints
 
-# Linting
-ruff check .
+The system exposes several API endpoints through the MCP server:
+
+### Document Management
+- `GET /api/documents`: List all documents
+- `GET /api/documents/{id}`: Get document details
+- `POST /xml/upload`: Upload new document
+
+### Task Management
+- `POST /task`: Create new task
+- `GET /task/{id}`: Get task status
+- `GET /task/{id}/result`: Get task results
+
+### Agent Operations
+- `GET /agents`: List all agents
+- `POST /agents/{id}/start`: Start an agent
+- `POST /agents/{id}/stop`: Stop an agent
+
+## Service Dependencies
+
+```mermaid
+graph TD
+    MCP --> Redis
 ```
 
-## Usage
-
-### Running the MCP Server
-
-```bash
-# Start the MCP server
-python -m agent_provocateur.main --host 127.0.0.1 --port 8000
-# Or using entry point
-ap-server --host 127.0.0.1 --port 8000
-
-# Start with Prometheus metrics on port 8001
-ap-server --metrics-port 8001
-
-# Disable metrics
-ap-server --no-metrics
-```
-
-### Using the CLI Client
-
-```bash
-# Fetch a JIRA ticket
-python -m agent_provocateur.cli ticket AP-1
-# Or using entry point
-ap-client ticket AP-1
-
-# Get document content
-ap-client doc doc1
-
-# Get PDF content
-ap-client pdf pdf1
-
-# Basic web search
-ap-client search "agent protocol"
-
-# Web search with provider selection
-ap-client search "agent protocol" --provider google
-
-# Configure server latency and error rate
-ap-client config --min-latency 100 --max-latency 1000 --error-rate 0.1
-
-# Output results as JSON
-ap-client ticket AP-1 --json
-
-# Connect to a different server
-ap-client --server http://localhost:8008 ticket AP-1
-
-# List all documents
-ap-client list-documents
-
-# List documents of a specific type
-ap-client list-documents --type code
-```
-
-### Working with XML Documents
-
-The XML Agent provides advanced capabilities for working with XML documents, identifying content that requires verification, planning verification tasks, and researching entities.
-
-#### XML Document Handling
-
-```bash
-# Using the XML CLI tool
-python scripts/xml_cli.py list               # List all XML documents
-python scripts/xml_cli.py get xml1           # Get XML document details
-python scripts/xml_cli.py get xml1 --content # Show XML content
-python scripts/xml_cli.py get xml1 --nodes   # Show researchable nodes
-python scripts/xml_cli.py upload examples/sample.xml --title "Product Catalog"  # Upload new XML document
-```
-
-#### XML Agent Capabilities
-
-```bash
-# Using the XML Agent CLI tool
-python scripts/xml_agent_cli.py identify --file sample.xml --confidence 0.4 --evidence  # Identify researchable nodes
-python scripts/xml_agent_cli.py identify --doc_id xml1 --rules-file sample_rules.json   # Use custom rules
-python scripts/xml_agent_cli.py plan xml1                            # Create verification plan
-python scripts/xml_agent_cli.py verify xml1 --search-depth high      # Test batch verification
-```
-
-#### Technical Research
-
-The system supports extracting entities from XML documents and researching them to generate enriched XML output:
-
-```bash
-# Research entities in an XML document
-ap-client research xml1
-
-# Customize research parameters
-ap-client research xml1 --min-confidence 0.7 --max-entities 5 
-
-# Generate enriched XML output
-ap-client research xml1 --format xml --output enriched.xml
-
-# Include search for external validation
-ap-client research xml1 --with-search
-```
-
-For more details on XML verification, research, and source attribution, see:
-- [XML Verification Guide](docs/guides/xml_verification.md)
-- [Technical Research Implementation](docs/implementation/phase3_implementation.md)
-- [Source Attribution Guide](docs/guides/source_attribution.md)
-
-### Using Web Search
-
-Agent Provocateur includes integrated web search capabilities with multiple provider support and source attribution:
-
-```bash
-# Test web search functionality with the command-line tool
-./scripts/ap.sh web-search --query "artificial intelligence trends"
-
-# Test with a specific provider
-./scripts/ap.sh web-search --query "climate change research" --provider google
-
-# Limit the number of results
-./scripts/ap.sh web-search --query "quantum computing" --max-results 3
-```
-
-#### WebSearchAgent Example
-
-```python
-import asyncio
-from agent_provocateur.web_search_agent import WebSearchAgent
-from agent_provocateur.a2a_models import TaskRequest
-
-async def main():
-    # Create and start the agent
-    agent = WebSearchAgent(agent_id="web-search")
-    await agent.start()
-    
-    try:
-        # Create a search task
-        task = TaskRequest(
-            task_id="search-task",
-            intent="search",
-            payload={
-                "query": "artificial intelligence applications",
-                "max_results": 5
-            },
-            source_agent="test-agent",
-            target_agent="web-search"
-        )
-        
-        # Perform the search
-        result = await agent.handle_task_request(task)
-        
-        # Process results
-        print(f"Found {result['result_count']} results:")
-        for item in result['results']:
-            print(f"- {item['title']}")
-            print(f"  URL: {item['url']}")
-            print(f"  Confidence: {item['confidence']}")
-            print(f"  {item['snippet']}")
-            print()
-            
-        # Access source information
-        print("\nSources:")
-        for source in result['sources']:
-            print(f"- {source['title']}")
-            print(f"  Citation: {source['citation']}")
-            print(f"  Confidence: {source['confidence']}")
-            
-    finally:
-        # Clean up
-        await agent.stop()
-
-asyncio.run(main())
-```
-
-For more details on web search integration, see:
-- [Web Search Integration](docs/api/web_search_integration.md)
-- [Brave Search API](docs/api/brave_web_search.md)
-
-### Using the Goal Refiner
-
-The Goal Refiner component breaks down high-level user goals into structured tasks and maps them to specific agent capabilities:
-
-```bash
-# Process a high-level research goal using the Goal Refiner CLI
-./scripts/goal_refiner_cli.py "Research quantum computing and extract key technologies"
-
-# Process a goal with document reference
-./scripts/goal_refiner_cli.py "Analyze XML document and verify claims" --doc-id xml1
-
-# Customize search parameters
-./scripts/goal_refiner_cli.py "Search for climate change solutions" --max-results 10 --provider google
-
-# Output results as JSON for programmatic use
-./scripts/goal_refiner_cli.py "Compare machine learning frameworks" --json
-```
-
-#### GoalRefiner API Example
-
-```python
-import asyncio
-from agent_provocateur.research_supervisor_agent import ResearchSupervisorAgent
-from agent_provocateur.a2a_messaging import InMemoryMessageBroker
-from agent_provocateur.a2a_models import TaskRequest
-
-async def main():
-    # Create and start the supervisor agent
-    broker = InMemoryMessageBroker()
-    supervisor = ResearchSupervisorAgent("research_supervisor_agent", broker)
-    await supervisor.start()
-    
-    try:
-        # Create a goal processing task
-        task = TaskRequest(
-            task_id="goal_task",
-            intent="process_goal",
-            payload={
-                "goal": "Research quantum computing applications in cryptography",
-                "options": {
-                    "max_results": 5,
-                    "search_provider": "brave"
-                }
-            },
-            source_agent="test-agent",
-            target_agent="research_supervisor_agent"
-        )
-        
-        # Process the goal
-        result = await supervisor.handle_process_goal(task)
-        
-        # Display the task breakdown
-        print(f"Workflow ID: {result['workflow_id']}")
-        print(f"Task count: {result['task_count']}")
-        
-        # Display each task and its agent assignment
-        for i, task in enumerate(supervisor.workflows[result['workflow_id']]['tasks']):
-            print(f"\nTask {i+1}: {task.get('description')}")
-            print(f"Agent: {task.get('assigned_agent')}")
-            print(f"Capabilities: {', '.join(task.get('capabilities', []))}")
-    
-    finally:
-        # Clean up
-        await supervisor.stop()
-
-asyncio.run(main())
-```
-
-For more details on goal refinement, see:
-- [Goal Refinement](docs/development/goal_refinements.md)
-
-### Using the LLM CLI
-
-The `ap-llm` command provides a convenient way to interact with any configured LLM provider:
-
-```bash
-# List all available and configured LLM providers
-ap-llm --list-providers
-
-# Basic usage with different providers
-ap-llm --provider mock --prompt "Why is the sky blue?"
-ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?"
-ap-llm --provider bridgeit --prompt "Why is the sky blue?"
-
-# Using chat format with system and user messages
-ap-llm --provider ollama --model llama3 --messages "system:You are a helpful assistant,user:Why is the sky blue?"
-ap-llm --provider bridgeit --messages "system:You are a research assistant,user:Explain quantum computing"
-
-# Adjusting generation parameters
-ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --temperature 0.3 --max-tokens 500
-ap-llm --provider bridgeit --prompt "Why is the sky blue?" --temperature 0.7 --max-tokens 1000
-
-# Output format control
-ap-llm --provider ollama --model llama3 --prompt "Why is the sky blue?" --json
-```
-
-For more details on provider-specific options, see the documentation files:
-- [Ollama API](docs/api/OLLAMA_API.md) - For Ollama integration details
-- [BridgeIT API](docs/api/BRIDGEIT_API.md) - For BridgeIT integration details
-
-### Working with Documents
-
-```python
-import asyncio
-from agent_provocateur.mcp_client import McpClient
-
-async def main():
-    client = McpClient("http://localhost:8000")
-    
-    # List all available documents
-    documents = await client.list_documents()
-    for doc in documents:
-        print(f"{doc.doc_id} ({doc.doc_type}): {doc.title}")
-    
-    # List documents of a specific type
-    code_docs = await client.list_documents(doc_type="code")
-    for doc in code_docs:
-        print(f"Code document: {doc.doc_id} - {doc.title}")
-    
-    # Get a specific document
-    doc = await client.get_document("code1")
-    if doc.doc_type == "code":
-        print(f"Language: {doc.language}")
-        print(f"Line count: {doc.line_count}")
-        print(f"Content sample: {doc.content[:100]}...")
-    
-    # Working with structured data documents
-    data_doc = await client.get_document("data1")
-    if data_doc.doc_type == "structured_data":
-        print(f"Format: {data_doc.format}")
-        print(f"Top-level keys: {list(data_doc.data.keys())}")
-        
-        # Process data based on format
-        if data_doc.format == "json":
-            config = data_doc.data.get("configuration", {})
-            print(f"Configuration: {config}")
-
-asyncio.run(main())
-```
-
-### Running the Document Sample Workflow
-
-```bash
-# Start the MCP server in one terminal
-ap-server
-
-# Run the sample document workflow in another terminal
-python -m agent_provocateur.sample_document_workflow
-```
-
-### Monitoring with Prometheus and Grafana
-
-The project includes Prometheus metrics integration with Pushgateway and a pre-configured Grafana dashboard.
-
-```bash
-# Install monitoring dependencies
-pip install -e ".[monitoring]"
-
-# Start all services including monitoring stack
-./scripts/start_ap.sh start monitoring
-
-# Or use the original method:
-# Start the MCP server with metrics enabled (default port 8001)
-ap-server --pushgateway localhost:9091
-
-# Start Prometheus, Pushgateway, and Grafana with Docker/Podman
-cd monitoring
-docker-compose up -d
-# or with podman
-podman-compose up -d
-
-# Access the dashboards
-open http://localhost:3000  # Grafana (admin/agent_provocateur)
-open http://localhost:9090  # Prometheus
-open http://localhost:9091  # Pushgateway
-```
-
-Available metrics include:
-- MCP client request counts and latencies
-- A2A message counts and processing times
-- Agent task counts, statuses, and durations
-- LLM request statistics
-- System information
-
-For more details, see [Monitoring README](monitoring/README.md).
-
-### Using the Web UI
-
-The Agent Provocateur web UI provides a user-friendly interface for working with documents, agents, and research workflows:
-
-```bash
-# Install frontend dependencies
-pip install -e ".[frontend]"
-
-# Start all services using the service manager
-./scripts/start_ap.sh start
-
-# Or start individual components:
-# Start the backend MCP server in one terminal
-ap-server --host 127.0.0.1 --port 8000
-
-# Start the frontend server in another terminal
-python frontend/server.py --host 127.0.0.1 --port 3001
-
-# Access the web UI in your browser
-open http://localhost:3001
-```
-
-The web UI provides:
-- Dashboard with system overview
-- Document management
-- XML research interface
-- Agent configuration
-- LLM interaction
-
-## Architecture and Design
-
-The Agent Provocateur system is built on these key architectural concepts:
-
-1. **Model-Context-Protocol (MCP)** - A standardized way for agents to interact with tools, data, and context
-2. **Agent-to-Agent (A2A) Messaging** - Communication system for collaborative agent workflows
-3. **Document Type System** - Unified representation of different document formats
-4. **Verification Framework** - System for verifying information in documents
-
-For more details on the architecture, see:
-- [A2A and MCP Integration](docs/architecture/A2A_MCP.md)
-- [Multi-Context Protocol](docs/architecture/MULTICONTEXTPROTOCOL.md)
-- [Project Design Specification](docs/architecture/project_design_spec.md)
-
-## Documentation
-
-See the [Documentation Index](docs/README.md) for the full documentation, including:
-- [Development Guides](docs/development/)
-- [API Documentation](docs/api/)
-- [User Guides](docs/guides/)
-- [Implementation Details](docs/implementation/)
-
-## License
-
-MIT License. See the LICENSE file for details.
+## Troubleshooting
+
+1. **Service not starting:**
+   ```bash
+   # Check service logs
+   ./scripts/manage_mcp.sh logs
+   ```
+
+2. **Port conflicts:**
+   ```bash
+   # Check if port is in use
+   lsof -i :8000
+   ```
+
+3. **Container health:**
+   ```bash
+   # Check health endpoint
+   curl http://localhost:8000/api/health
+   ```
+
+4. **Redis connection issues:**
+   ```bash
+   # Check if Redis is running
+   redis-cli ping
+   
+   # If using Podman Redis container
+   podman ps | grep redis
+   
+   # Check Redis logs
+   podman logs redis
+   ```
+
+5. **Common Redis issues:**
+   - If Redis connection fails, ensure Redis is running and accessible
+   - Check Redis port (6379) is not blocked by firewall
+   - Verify Redis container is running if using Podman
+   - Try restarting Redis if connection issues persist
+
+## Best Practices
+
+1. Always use the provided scripts for managing services
+2. Check logs in `./logs` directory for debugging
+3. Run health checks after configuration changes
+4. Keep port configuration simple and consistent
+5. Use standard ports where possible

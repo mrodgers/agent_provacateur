@@ -4,7 +4,7 @@ services:
   redis:
     image: redis:alpine
     ports:
-      - "6379:6379"
+      - "4003:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -44,6 +44,28 @@ services:
       redis:
         condition: service_healthy
 
+  web-search-mcp:
+    build:
+      context: ./web_search_mcp
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - TRANSPORT_TYPE=http
+      - HOST=0.0.0.0
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
   enhanced-mcp-server:
     build:
       context: .
@@ -53,6 +75,7 @@ services:
     environment:
       - ENTITY_DETECTOR_URL=http://entity-detector:8082
       - GRAPHRAG_URL=http://graphrag:9584
+      - WEB_SEARCH_URL=http://web-search-mcp:8083
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - PYTHONUNBUFFERED=1
@@ -61,6 +84,7 @@ services:
     depends_on:
       - entity-detector
       - graphrag
+      - web-search-mcp
     command: ["python", "-m", "agent_provocateur", "mcp", "--host", "0.0.0.0"]
 
   frontend:
